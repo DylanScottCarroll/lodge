@@ -35,3 +35,5 @@ Once a pure-Lodge backend exists, efforts will be focused on implementing all of
 ## September 28th 2024
 Recently, the Lodge specification has reached a point where the syntax has stabilized for the most part, allowing work to begin on a concrete implementation. As of today, a parser capable of consuming arbitrary LR(1) context-free grammars has been created. The next step is to begin converting the specification into a complete context-free grammar describing Lodge's syntax that can run in the parser.
 
+Also, the parser is in need of comments and type hints.
+
