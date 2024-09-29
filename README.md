@@ -19,7 +19,6 @@ This is the second part of the bootstrapping process. The intent of this stage i
 
 This stage is impprtant as it is the first stage that will be kept. The intention is that the final version of Lodge will be able to be interpreted or compiled. It will also be the fondation for building the compiler. 
 
-
 ## 3. Lodge Compiler
 This is the final goal of the project. The intent is to be able to compile Lodge to native binaries.
 
@@ -30,4 +29,9 @@ Once a functional Lodge-based interpreter exists, it will be extended with an LL
 Once a pure-Lodge backend exists, efforts will be focused on implementing all of the language features and creating a stable and usable version of Lodge.
 
 
+
+# Project Status
+
+## September 28th 2024
+Recently, the Lodge specification has reached a point where the syntax has stabilized for the most part, allowing work to begin on a concrete implementation. As of today, a parser capable of consuming arbitrary LR(1) context-free grammars has been created. The next step is to begin converting the specification into a complete context-free grammar describing Lodge's syntax that can run in the parser.
 
