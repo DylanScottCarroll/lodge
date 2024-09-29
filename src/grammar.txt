@@ -1,0 +1,26 @@
+start -> exp
+
+exp -> sums
+
+sums -> sums + sums
+sums -> sums - sums
+sums -> products
+
+products -> products * products
+products -> products / products
+products -> num
+products -> ( exp )
+
+num -> digit num
+num -> digit
+
+digit -> 0
+digit -> 1
+digit -> 2
+digit -> 3
+digit -> 4
+digit -> 5
+digit -> 6
+digit -> 7
+digit -> 8
+digit -> 9
