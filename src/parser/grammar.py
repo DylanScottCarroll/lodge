@@ -1,5 +1,5 @@
 import re
-from ..ordered_set import OrderedSet
+from .ordered_set import OrderedSet
 
 class GrammarRule:
     """
@@ -47,20 +47,22 @@ class Grammar:
             * Returns a list of rules containing the given token in the body.
     """
 
-    def __init__(self, filename: str) -> None:
+    def __init__(self, rules: list[GrammarRule], nonterminals: OrderedSet, terminals: OrderedSet, start_symbol: str) -> None:
         self.rules = []
-        self.start_symbol = None
+        self.start_symbol = start_symbol
 
         self.rule_head_map = {}
         self.rule_body_map = {}
 
-        self.nonterminals = OrderedSet()
-        self.terminals = OrderedSet(["$"])
+        self.nonterminals = nonterminals
+        self.terminals = terminals
 
         self.first_sets = {}
         self.follow_sets = {}
 
-        self._read_file(filename)
+        for rule in rules:
+            self._add_rule(rule)
+        
         self._populate_first_and_follow_sets()
         
 
@@ -70,23 +72,6 @@ class Grammar:
     def get_rules_by_body_token(self, token: str) -> list[GrammarRule]:
         return list(map(lambda i: self.rules[i], self.rule_body_map[token]))
 
-    def _read_file(self, filename: str) -> None:
-        with open(filename, 'r') as f:
-            for line in f:                
-                if "->" not in line:
-                    continue
-                
-                head, body = re.split(r'\s+->\s+', line)
-                body = re.split(r'\s+', body.strip())
-
-                self.nonterminals.add(head)
-                self.terminals.update(body)
-
-                self._add_rule(GrammarRule(head, body))
-
-        self.terminals -= self.nonterminals
-
-        self.start_symbol = self.rules[0].head
 
     def _add_rule(self, rule: GrammarRule) -> None:
         i = len(self.rules)

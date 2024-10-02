@@ -1,6 +1,11 @@
-from parser import Grammar, Parser
+from parser import Parser
+from parser import SyntaxDescription
+
+
 if __name__ == "__main__":
-    grammar = Grammar("grammar.txt")
+    language_file = SyntaxDescription("grammar.txt")
+    
+    grammar = language_file.get_grammar()
     parser = Parser(grammar)
 
     print(parser.table)

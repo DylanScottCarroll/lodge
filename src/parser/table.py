@@ -1,6 +1,6 @@
 from typing import Tuple, Optional, List, Dict, Union
-from ..ordered_set import OrderedSet
-from ..grammar import Grammar, GrammarRule
+from .ordered_set import OrderedSet
+from .grammar import Grammar, GrammarRule
 
 class StateItem:
     """
@@ -120,7 +120,7 @@ class State:
 
 class ParseTable:
     """
-    Represents a parse table for a given grammar.
+    Represents an LR(1) parse table for a given grammar.
     
     Attributes:
         states (list): A list of states in the parse table.
@@ -153,6 +153,9 @@ class ParseTable:
 
     def action(self, state: int, token: str) -> Tuple[str, ...]:
         return self.action_table.get((state, token), ("err",))
+
+    def __getitem__(self, key: Tuple[int, str]) -> Tuple[str, ...]:
+        return self.action_table.get(key, ("err",))
 
     def _generate_table(self) -> None:
         # Make Start State
@@ -198,9 +201,6 @@ class ParseTable:
 
                 else:
                     print(f"Error, no valid action for {item} in state {id}:{state}")
-                    
-    def __getitem__(self, key: Tuple[int, str]) -> Tuple[str, ...]:
-        return self.action_table.get(key, ("err",))
 
 
     def __str__(self) -> str:
