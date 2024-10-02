@@ -1,5 +1,8 @@
 class OrderedSet:
+    """A set that maintains the order of elements as they were added."""
+
     def __init__(self, iterable=None):
+
         self.data = {}
         if iterable:
             self.update(iterable)

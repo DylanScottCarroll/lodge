@@ -1,20 +1,27 @@
+from typing import Tuple, Optional, List, Dict, Union
 from ..ordered_set import OrderedSet
+from ..grammar import Grammar, GrammarRule
 
 class StateItem:
-    def __init__(self, rule, follow, position=0):
-        self.head = rule.head
-        self.body = tuple(rule.body)
-        self.follow = tuple(follow)
-        self.position = position
+    """
+    Represents a partially completed grammar rule in a state of a partially parsed grammar.
+    Used as a component of a State object.
+    """
+
+    def __init__(self, rule: GrammarRule, follow: Tuple[str, ...], position: int = 0) -> None:
+        self.head: str = rule.head
+        self.body: Tuple[str, ...] = tuple(rule.body)
+        self.follow: Tuple[str, ...] = tuple(follow)
+        self.position: int = position
 
     @property
-    def next_token(self):
+    def next_token(self) -> Optional[str]:
         if self.position < len(self.body):
             return self.body[self.position]
         else:
             return None
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         if hash(self) != hash(other):
             return False
         
@@ -32,7 +39,7 @@ class StateItem:
                ^ hash(self.position)
                ^ hash(self.follow) )
     
-    def __str__(self):
+    def __str__(self) -> str:
         string = f"[{self.head} -> "
         
         for i, token in enumerate(self.body + (None,)):
@@ -47,9 +54,17 @@ class StateItem:
         return string
 
 class State:
-    def __init__(self, grammar, *items):
-        self.items = OrderedSet(items)
-        self.grammar = grammar
+    """
+    A set of partially completed grammar rules, representing a state in a partially parsed grammar.
+    When a state is created, it is automatically closed to include all subsequent rules that can be reached from the current state.
+
+    Attributes:
+        items (OrderedSet): A set of StateItems representing the rules in the state.
+    """
+
+    def __init__(self, grammar: Grammar, *items: StateItem) -> None:
+        self.items: OrderedSet[StateItem] = OrderedSet(items)
+        self._grammar: Grammar = grammar
 
 
         # Create closure
@@ -58,29 +73,29 @@ class State:
                 self._close_helper(item, [])
 
 
-    def _close_helper(self, item, visited):
+    def _close_helper(self, item: StateItem, visited: List[StateItem]) -> None:
         next_token = item.body[item.position]
 
-        if next_token in self.grammar.terminals:
+        if next_token in self._grammar.terminals:
             return   
             
-        follow_set = self.grammar.follow_sets[next_token]    
+        follow_set = self._grammar.follow_sets[next_token]    
 
-        for rule in self.grammar.get_rules_by_head(next_token):
+        for rule in self._grammar.get_rules_by_head(next_token):
             new_item = StateItem(rule, follow_set)
             self.items.add(new_item)
 
             if new_item not in visited:
                 self._close_helper(new_item, visited+[new_item])    
 
-    def get_transition_result(self, token):
-        def shift_item(item):
+    def get_transition_result(self, token: str) -> 'State':
+        def shift_item(item: StateItem) -> StateItem:
             return StateItem(item, item.follow, item.position+1)
         
         items = [shift_item(item) for item in self.items
                  if (item.position < len(item.body)) and (item.body[item.position] == token)]
         
-        return State(self.grammar, *items)
+        return State(self._grammar, *items)
 
 
     def __hash__(self) -> int:
@@ -90,43 +105,63 @@ class State:
 
         return hash_value
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, State):
+            return False
         return self.items == other.items
 
     
     def __str__(self) -> str:
         return "ItemSet{" + "\n\t".join(map(str, self.items)) + "}"
     
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
 
 class ParseTable:
-    def __init__(self, grammar):
-        self.grammar = grammar
-
-        self.states = []
-        self.state_ids = {}
+    """
+    Represents a parse table for a given grammar.
+    
+    Attributes:
+        states (list): A list of states in the parse table.
+        state_ids (dict): A dictionary mapping states to their corresponding IDs.
+        goto_table (dict): A dictionary representing the Goto table of the parse table.
+        action_table (dict): A dictionary representing the Action table of the parse table.
         
-        self.goto_table = {} #(state, token) -> state
-        self.action_table = {} #(state, token) -> (action, *args)
+    Methods:
+        goto(state: int, token: str) -> int:
+            * Returns the state to which the given state transitions on the given token.
+        action(state: int, token: str) -> Tuple[str, ...]:
+            * Returns the action and any additional arguments for the given state and token.
+        __getitem__(key: Tuple[int, str]) -> Tuple[str, ...]: 
+            * Returns the action and any additional arguments for the given state and token.            
+            """
+
+    def __init__(self, grammar: Grammar) -> None:
+        self._grammar: Grammar = grammar
+
+        self.states: List[State] = []
+        self.state_ids: Dict[State, int] = {}
+        
+        self.goto_table: Dict[Tuple[int, str], int] = {} #(state, token) -> state
+        self.action_table: Dict[Tuple[int, str], Tuple[str, ...]] = {} #(state, token) -> (action, *args)
 
         self._generate_table()
 
-    def goto(self, state, token):
+    def goto(self, state: int, token: str) -> int:
         return self.goto_table.get((state, token), -1)
 
-    def action(self, state, token):
+    def action(self, state: int, token: str) -> Tuple[str, ...]:
         return self.action_table.get((state, token), ("err",))
 
-    def _generate_table(self):
+    def _generate_table(self) -> None:
         # Make Start State
-        start = self.grammar.start_symbol
+        start = self._grammar.start_symbol
         start_item = StateItem(
-            self.grammar.get_rules_by_head(start)[0],
-            self.grammar.follow_sets[start]
+            self._grammar.get_rules_by_head(start)[0],
+            self._grammar.follow_sets[start]
         )
-        current_state = State(self.grammar, start_item)
+        current_state = State(self._grammar, start_item)
         self.state_ids[current_state] = 0
 
         # Populate Goto Table
@@ -136,7 +171,7 @@ class ParseTable:
             current_state = stack.pop(0)
             self.states.append(current_state)
 
-            for token in self.grammar.terminals.union(self.grammar.nonterminals):            
+            for token in self._grammar.terminals.union(self._grammar.nonterminals):            
                 new_state = current_state.get_transition_result(token)
                 if len(new_state.items) == 0: continue
                 
@@ -152,7 +187,7 @@ class ParseTable:
         for state, id in self.state_ids.items():
             for item in state.items:
                 if item.position == len(item.body):
-                    if item.head == self.grammar.start_symbol:
+                    if item.head == self._grammar.start_symbol:
                         self.action_table[(id, "$")] = ("acc",)
                     else:
                         for follow in item.follow:
@@ -164,11 +199,11 @@ class ParseTable:
                 else:
                     print(f"Error, no valid action for {item} in state {id}:{state}")
                     
-    def __getitem__(self, key):
+    def __getitem__(self, key: Tuple[int, str]) -> Tuple[str, ...]:
         return self.action_table.get(key, ("err",))
 
 
-    def __str__(self):
+    def __str__(self) -> str:
         string = ""
 
         string += "States:\n"
@@ -180,17 +215,17 @@ class ParseTable:
         spacing = 15
 
         string += " "*5 + "│"
-        for token in self.grammar.terminals:
+        for token in self._grammar.terminals:
             string += f"{token:^{spacing}}"
 
 
-        string += "\n" + "─"*5 + "┼" +  "─"*(spacing*len(self.grammar.terminals) )
+        string += "\n" + "─"*5 + "┼" +  "─"*(spacing*len(self._grammar.terminals) )
 
 
         for state, id in self.state_ids.items():
             string += f"\n{id:>4} │"
             
-            for token in self.grammar.terminals:
+            for token in self._grammar.terminals:
                 action = self.action_table.get((id, token), ("",))
                 action = " ".join(map(str, action))
                 string += f"{action:^{spacing}}"
@@ -201,16 +236,16 @@ class ParseTable:
         spacing = 8
 
         string += " "*5 + "│"
-        for token in list(self.grammar.terminals) + list(self.grammar.nonterminals):
+        for token in list(self._grammar.terminals) + list(self._grammar.nonterminals):
             string += f"{token:^{len(token)+4}}"
 
 
-        string += "\n" + "─"*5 + "┼" +  "─"*(spacing*len(self.grammar.terminals) )
+        string += "\n" + "─"*5 + "┼" +  "─"*(spacing*len(self._grammar.terminals) )
 
         for state, id in self.state_ids.items():
             string += f"\n{id:>4} │"
             
-            for token in list(self.grammar.terminals) + list(self.grammar.nonterminals):
+            for token in list(self._grammar.terminals) + list(self._grammar.nonterminals):
                 new_state = self.goto_table.get((id, token), "")
                 string += f"{new_state:^{len(token)+4}}"
 

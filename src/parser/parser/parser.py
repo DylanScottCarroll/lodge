@@ -1,30 +1,41 @@
+from typing import List, Optional, Tuple
 from .table import ParseTable
 
 class ParseNode:
-    def __init__(self, token, children=None):
+    """
+    Represents a node in the parse tree.
+
+    Attributes:
+        token (str): The token associated with the node.
+        children (List[ParseNode]): A list of child nodes.
+    """
+
+    def __init__(self, token: str, children: Optional[List['ParseNode']] = None):
         self.token = token
         self.children = children if children is not None else []
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self._stringify(0)
 
-    def _stringify(self, level):
+    def _stringify(self, level: int) -> str:
         string = f"{'   '*level}{self.token}\n"
         for child in self.children:
             string += "   "*level + child._stringify(level+1) + "\n"
 
         return string
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
 class Parser:
-    def __init__(self, grammar):
+    """Encapsulates the parsing process for a given grammar."""
+
+    def __init__(self, grammar: str):
         self.grammar = grammar
         self.table = ParseTable(grammar)
 
-    def __call__(self, string):
-        stack = [(None, 0)]
+    def __call__(self, string: str) -> ParseNode:
+        stack: List[Tuple[Optional[ParseNode], int]] = [(None, 0)]
 
         while True:
             state = stack[-1][1]
