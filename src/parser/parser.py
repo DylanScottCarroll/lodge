@@ -1,5 +1,6 @@
 from typing import List, Optional, Tuple
 from .table import ParseTable
+from .tokenizer import Token
 
 class ParseNode:
     """
@@ -34,13 +35,20 @@ class Parser:
         self.grammar = grammar
         self.table = ParseTable(grammar)
 
-    def __call__(self, string: str) -> ParseNode:
+    def __call__(self, token_stream: str) -> ParseNode:
         stack: List[Tuple[Optional[ParseNode], int]] = [(None, 0)]
+
+
 
         while True:
             state = stack[-1][1]
-            token = string[0] if len(string) > 0 else "$"
-
+            
+            #token = string[0] if len(string) > 0 else "$"
+            token = next(token_stream)
+            
+            print(stack[-1][0].token if stack[-1][0] is not None else "[", stack[-1][1], token)
+            print(self.table[state, token])
+            print()
             action = self.table[state, token]
 
             if action[0] == "shft":
@@ -49,7 +57,6 @@ class Parser:
                 new_node = ParseNode(token)
 
                 stack.append((new_node, goto))
-                string = string[1:]
 
             elif action[0] == "red":
                 _, head, body_length = action
