@@ -2,7 +2,7 @@ from parser import SyntaxDescription
 from parser.symbol import Symbol
 
 if __name__ == "__main__":
-    syntax = SyntaxDescription("test.lang")
+    syntax = SyntaxDescription("cfg.lang")
 
     print(syntax.tokenizer.rules)
 

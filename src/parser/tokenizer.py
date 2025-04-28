@@ -2,10 +2,10 @@ import re
 from .symbol import Symbol
 
 class Token:
-    def __init__(self, symbol:Symbol, text:str, span:tuple[int]):
+    def __init__(self, symbol:Symbol, text:str, span:tuple[int, int]):
         self.symbol:Symbol = symbol
         self.text:str = text
-        self.span:tuple[int] = span
+        self.span:tuple[int, int] = span
 
     def __str__(self):
         return f"[{str(self.symbol)} '{self.text}']"
@@ -17,24 +17,27 @@ class Token:
 class Tokenizer:
     def __init__(self, rules:list[tuple]) -> None:
         # Build the compound regular expression that describes the tokenizer
-
-        self.rules = [
-            (symbol, re.compile(pattern) )
-            for symbol, pattern in rules
-        ]
+        self.rules = []
+        for symbol, pattern in rules:
+            try:
+                symbol_pattern = (symbol, re.compile(pattern) )
+            except re.PatternError: 
+                print(f'Error: The regular expression for "{symbol}" is malformed: /{pattern}/')
+                continue 
+            self.rules.append(symbol_pattern)
 
     def __call__(self, text:str) -> 'TokenStream':
         return TokenStream(self, text)
     
     
-    def next_token(self, text:str, position:int) -> tuple[Token, int]:
+    def next_token(self, text:str, position:int) -> tuple[Token|None, int]:
         if position >= len(text):
             return Token(Symbol.eof, "", (position, position)), position
         
         # Find the earliest match
         # Ties between matches are broken by length
-        match:re.Match = None
-        symbol = None
+        match:re.Match|None = None
+        symbol: Symbol|None = None
         for current_symbol, pattern in self.rules:
             new_match:re.Match = pattern.match(text, pos=position)
             if not new_match: continue
@@ -51,7 +54,7 @@ class Tokenizer:
                 match = new_match
                 symbol = current_symbol
         
-        if match is None:
+        if match is None or symbol is None:
             # If no token matches, treat a single character as a tokenp
             symbol = Symbol(text[position], terminal=True)
             start, end = position, position+1
@@ -62,9 +65,9 @@ class Tokenizer:
 
         # Return a new token
         if symbol == Symbol.epsilon:
-            print("Skipping whitespace", end="")
             return None, end
         else:
+
             return Token(symbol, text[start:end], (start, end)), end
     
         

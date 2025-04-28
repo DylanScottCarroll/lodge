@@ -107,14 +107,21 @@ class Grammar:
         in_order_traverse(self.start_symbol, OrderedSet({self.start_symbol}))
         
         for nonterminal in self.nonterminals:
-            if nonterminal not in self.first_sets or nonterminal not in self.follow_sets:
-                print(f"WARNING: Variable '{nonterminal}' not reachable with the provided grammar.")
+            not_found = False 
+            if (nonterminal not in self.first_sets):
+                not_found = True
+                self.first_sets[nonterminal] = []
+            if (nonterminal not in self.follow_sets):
+                not_found = True
+                self.follow_sets[nonterminal] = []
 
+            if not_found:
+               print(f"WARNING: Variable '{nonterminal}' not reachable with the provided grammar.")
 
     def _find_first_set(self, symbol: Symbol, explored_symbols: OrderedSet|None = None) -> OrderedSet:
         if explored_symbols is None: 
             explored_symbols = OrderedSet()
-        
+          
         if symbol.terminal:
             return OrderedSet([symbol])
         

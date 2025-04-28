@@ -10,8 +10,8 @@ class _SymbolMeta(type):
 class Symbol(metaclass=_SymbolMeta):
     """A symbol in the syntax description used by the tokenizer and grammar."""
 
-    epsilon = ... # Filled in by metaclass
-    eof = ...
+    epsilon:'Symbol' = None# Filled in by metaclass
+    eof:'Symbol' = None
 
     instances = {}
 

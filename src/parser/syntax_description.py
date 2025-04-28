@@ -39,7 +39,7 @@ class SyntaxDescription:
                 
                 grammar_match = re.fullmatch(r'([a-zA-Z0-9_-]*) *-> *(.+)', line)
                 token_match = re.fullmatch(r'([a-zA-Z0-9_-]*|ε) *= *\/(.+)\/ *', line)
-                ignored_match = re.fullmatch(r'#.*|', line)  
+                ignored_match = re.fullmatch(r'#.*|\s*', line)  
 
                 if grammar_match:
                     head, body = grammar_match.groups()

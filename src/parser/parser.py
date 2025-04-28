@@ -30,9 +30,8 @@ class Parser:
     def __init__(self, grammar: Grammar):
         self.grammar:Grammar = grammar
         self.table:dict[Symbol, dict[Symbol, list[Symbol]]] = self._find_ll_table()
-
-        print(self.table)
-
+        
+        return
         for k, v in self.table.items():
             print(f"{str(k)}:")
             for sk, sv in v.items():
@@ -113,9 +112,9 @@ class Parser:
 
                 for terminal in terminals:
                     if terminal in table[symbol]:
-                        print(f"ERROR: Conflict between:\n" +
-                            f"\t{symbol} -> {" ".join(map(str, table[symbol]))}\n" +
-                            f"\t{symbol} -> {" ".join(map(str, rule.body))}"
+                        print(f"ERROR: First set conflict between:\n" +
+                            f"\t({symbol.identifier}, {terminal.identifier}) -> {" ".join(map(str, table[symbol][terminal]))}\n" +
+                            f"\t({symbol.identifier}, {terminal.identifier}) -> {" ".join(map(str, rule.body))}"
                             ) 
                     else:
                         table[symbol][terminal] = rule.body
