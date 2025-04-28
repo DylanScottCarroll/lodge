@@ -1,0 +1,62 @@
+num = /[0-9]+/
+identifier = /[a-zA-Z_]+/
+sum_operator = /\+|-/
+mul_operator = /\*|//
+
+
+start -> exp
+
+exp -> sums
+
+sums -> products sum_rest
+sum_rest -> sum_operator sums
+sum_rest -> ε
+
+products -> atom product_rest
+product_rest -> mul_operator products
+product_rest -> ε
+
+products -> ( exp )
+
+atom -> num
+atom -> identifier
+
+
+<start>:
+	'num'          : <exp>
+	'identifier'   : <exp>
+	'('            : <exp>
+    _              :
+
+<exp>:
+	'num'          : <sums>
+	'identifier'   : <sums>
+	'('            : <sums>
+    _              :
+
+<sums>:
+	'num'          : <products> <sum_rest>
+	'identifier'   : <products> <sum_rest>
+	'('            : <products> <sum_rest>
+    _              :
+
+<sum_rest>:
+	'sum_operator' : 'sum_operator' <sums>
+    _              :
+
+<products>:
+	'num'          : <atom> <product_rest>
+	'identifier'   : <atom> <product_rest>
+	'('            : '(' <exp> ')'
+    _              :
+
+<product_rest>:
+	'mul_operator' : 'mul_operator' <products>
+	'ε'            : 'ε'
+    _              :
+
+<atom>:
+	'num'          : 'num'
+	'identifier'   : 'identifier'
+    num
+    _              :

@@ -1,23 +1,20 @@
-from parser import Parser
 from parser import SyntaxDescription
-
-<<<<<<< HEAD
-if __name__ == "__main__":
-    language_file = SyntaxDescription("test.lang")
-    
-    tokenizer = language_file.get_tokenizer()
-=======
+from parser.symbol import Symbol
 
 if __name__ == "__main__":
-    language_file = SyntaxDescription("grammar.txt")
-    
->>>>>>> 6c70fe12ac072ea9fce296c53afe9f989e230e30
-    grammar = language_file.get_grammar()
-    parser = Parser(grammar)
+    syntax = SyntaxDescription("test.lang")
 
-    print(parser.table)
+    print(syntax.tokenizer.rules)
 
     while True:
         string = input("Enter string to parse: ")
-        string = string.replace(" ", "")
-        print(parser(string))
+        # for token in syntax.tokenizer(string):
+        #     print(token)
+        token_stream = syntax.tokenizer(string)
+        while True:
+            print(tok:=token_stream.pop(), end = " ")
+            if tok.symbol == Symbol.eof: break
+        print("\n")
+
+        tree = syntax.parser(syntax.tokenizer(string))
+        tree.print()

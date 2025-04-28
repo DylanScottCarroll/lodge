@@ -1,8 +1,10 @@
 import re
 
-from .tokenizer import Tokenizer, Token, TokenType
+from .tokenizer import Tokenizer
 from .ordered_set import OrderedSet
 from .grammar import Grammar, GrammarRule 
+from .parser import Parser
+from .symbol import Symbol
 
 class SyntaxDescription:
     """
@@ -14,72 +16,68 @@ class SyntaxDescription:
 
         # Grammar Information
         self._rules = []
+        
         self._nonterminals = OrderedSet()
         self._terminals = OrderedSet()
-        self._start_symbol = None
 
         # Tokenizer Information
         self._tokenizer_rules = []  
 
-        self._read_file(filename)
+        self._start_symbol: Symbol = self._read_file(filename)
 
-    def get_grammar(self) -> Grammar:
-        return Grammar(self._rules, self._nonterminals, self._terminals, self._start_symbol)
+        self.grammar = Grammar(self._rules, self._nonterminals, self._terminals, self._start_symbol)
+        self.parser = Parser(self.grammar)
+        self.tokenizer =  Tokenizer(self.tokenizer_rules)
 
-    def get_tokenizer(self) -> 'Tokenizer':
-        return Tokenizer(self.tokenizer_rules)
-
-    def _read_file(self, filename: str) -> None:
+    def _read_file(self, filename: str) -> Symbol:
         raw_grammar_rules: list = []
         self.tokenizer_rules: list = []
         
         with open(filename, 'r') as f:
-            for i, line in enumerate(f):                
-                grammar_match = re.match(r'([a-zA-Z0-9]*) *-> *(.+)', line)
-                token_match = re.match(r'([a-zA-Z0-9]*) *= */(.+)/ *', line)
-                ignored_match = re.match(r'#.*|', line)  
+            for i, line in enumerate(f):
+                line = line.rstrip("\n")
                 
+                grammar_match = re.fullmatch(r'([a-zA-Z0-9_-]*) *-> *(.+)', line)
+                token_match = re.fullmatch(r'([a-zA-Z0-9_-]*|ε) *= *\/(.+)\/ *', line)
+                ignored_match = re.fullmatch(r'#.*|', line)  
+
                 if grammar_match:
                     head, body = grammar_match.groups()
                     body = body.strip().split()
                     raw_grammar_rules.append((head, body))
+                
                 elif token_match:
                     head, body = token_match.groups()
+                    head = Symbol(head, True)
+
+                    self._terminals.add(head)
                     self.tokenizer_rules.append((head, body))
 
                 elif not ignored_match:
                     raise ValueError(f"Invalid syntax on line {i}:\n{line}")
 
-        self._parse_grammar_rules(raw_grammar_rules)
+        return self._process_grammar_rules(raw_grammar_rules)
                                     
 
-    def _parse_grammar_rules(self, raw_rules) -> None:
+    def _process_grammar_rules(self, raw_rules) -> Symbol:
         # Find all nonterminals
-        nonterminal_identifiers = set(head for head, _ in raw_rules)
+        nonterminal_identifiers = OrderedSet(head for head, _ in raw_rules)
 
-        # Add the rules to the grammar
+        # Add the processed rules to the grammar
         for head, body in raw_rules:
-            tokenized_head = Token(TokenType.nonterminal, head)
-            self._nonterminals.add(tokenized_head)
+            head_symbol = Symbol(head, False)
+            self._nonterminals.add(head_symbol)
 
-            # Convert the string token body int to a list of Token objects
-            # and add any terminals to the set 
-            
-            def token_type(token: str) -> TokenType:
-                if token in nonterminal_identifiers:
-                    return TokenType.nonterminal
-                else:
-                    return TokenType.terminal
-
-            tokenized_body = [
-                Token(token_type(token), token)
-                for token in body 
+            # Convert the string list body int to a list of Symbol objects
+            body_symbols = [
+                Symbol(identifier, identifier not in nonterminal_identifiers)
+                for identifier in body 
             ]
-            self._terminals.update([token for token in tokenized_body if token.is_terminal])
-
+            # Add any new terminals to the termian set
+            self._terminals.update([symbol for symbol in body_symbols if symbol.terminal])
 
             # Add the prepared rule to the grammar
-            self._rules.append(GrammarRule(tokenized_head, tokenized_body))
+            self._rules.append(GrammarRule(head_symbol, body_symbols))
 
 
-        self._start_symbol = self._rules[0].head
+        return self._rules[0].head
