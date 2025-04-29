@@ -61,7 +61,7 @@ class Symbol(metaclass=_SymbolMeta):
         return hash(self.identifier) ^ hash(self.terminal) ^ hash(self._special_type)
     
     def __str__(self):
-            return f"<{self.identifier}>"
+            return f"{self.identifier}"
 
     def __repr__(self):
         if self._special_type != "":

@@ -1,20 +1,20 @@
-from parser import Parser
 from parser import SyntaxDescription
+from parser.symbol import Symbol
+import readline
 
 if __name__ == "__main__":
-    language_file = SyntaxDescription("test.lang")
+    syntax = SyntaxDescription("calc.lang")
+
+    # print(syntax.tokenizer.rules)
+
+    string = input("> ")
+
+    token_stream = syntax.tokenizer(string)
+    while (t := token_stream.pop()).symbol != Symbol.eof:
+        print(t, end=" ")
+    print()
     
-    tokenizer = language_file.get_tokenizer()
 
-if __name__ == "__main__":
-    language_file = SyntaxDescription("grammar.txt")
-    
-    grammar = language_file.get_grammar()
-    parser = Parser(grammar)
-
-    print(parser.table)
-
-    while True:
-        string = input("Enter string to parse: ")
-        string = string.replace(" ", "")
-        print(parser(string))
+    token_stream = syntax.tokenizer(string)
+    tree = syntax.parser(token_stream)
+    tree.print()

@@ -1,0 +1,19 @@
+ε = /\s/
+num = /[0-9]+/
+identifier = /[a-zA-Z_]+/
+sum_operator = /\+|-/
+mul_operator = /\*|//
+
+start -> exp
+
+exp -> sums
+
+sums -> sums sum_operator products
+sums -> products
+
+products -> products mul_operator products
+products -> atom
+products -> ( exp )
+
+atom -> num
+atom -> identifier
