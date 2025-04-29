@@ -1,7 +1,6 @@
-from .tokenizer import Token
 from .ordered_set import OrderedSet
-
-
+from .symbol import Symbol
+            
 class GrammarRule:
     """
     Represents a production rule in a grammar.
@@ -11,7 +10,7 @@ class GrammarRule:
         body (list): A list of symbols on the right-hand side of the rule.
     """
     
-    def __init__(self, head: Token, body: list[Token]) -> None:
+    def __init__(self, head: Symbol, body: list[Symbol]) -> None:
         self.head = head
         self.body = body
 
@@ -36,7 +35,7 @@ class Grammar:
         start_symbol (str): The start symbol of the grammar.
         
         rule_head_map (dict): A dictionary mapping nonterminals to the indices of rules where they are the head.
-        rule_body_map (dict): A dictionary mapping tokens to the indices of rules where they appear in the body.
+        rule_body_map (dict): A dictionary mapping symbols to the indices of rules where they appear in the body.
         
         nonterminals (OrderedSet): An ordered set of nonterminal symbols in the grammar.
         terminals (OrderedSet): An ordered set of terminal symbols in the grammar.
@@ -47,16 +46,16 @@ class Grammar:
     Methods:
         get_rules_by_head(nonterminal: str) -> list[GrammarRule]:
             * Returns a list of rules with the given nonterminal as the head.
-        get_rules_by_body_token(token: str) -> list[GrammarRule]:
-            * Returns a list of rules containing the given token in the body.
+        get_rules_by_body_symbol(symbol: Symbol) -> list[GrammarRule]:
+            * Returns a list of rules containing the given symbol in the body.
     """
 
-    def __init__(self, rules: list[GrammarRule], nonterminals: OrderedSet, terminals: OrderedSet, start_symbol: Token) -> None:
+    def __init__(self, rules: list[GrammarRule], nonterminals: OrderedSet, terminals: OrderedSet, start_symbol: Symbol) -> None:
         self.rules:list[GrammarRule] = []
-        self.start_symbol:Token = start_symbol
+        self.start_symbol:Symbol = start_symbol
 
-        self.rule_head_map: dict[Token, list[int]] = {}
-        self.rule_body_map: dict[Token, list[int]] = {}
+        self.rule_head_map: dict[Symbol, list[int]] = {}
+        self.rule_body_map: dict[Symbol, list[int]] = {}
 
         self.nonterminals = nonterminals
         self.terminals = terminals
@@ -67,14 +66,13 @@ class Grammar:
         for rule in rules:
             self._add_rule(rule)
         
-        self._populate_first_and_follow_sets()
-        
+        self._populate_first_and_follow_sets()        
 
-    def get_rules_by_head(self, nonterminal: Token) -> list[GrammarRule]:
+    def get_rules_by_head(self, nonterminal: Symbol) -> list[GrammarRule]:
         return list(map(lambda i: self.rules[i], self.rule_head_map[nonterminal]))
     
-    def get_rules_by_body_token(self, token: Token) -> list[GrammarRule]:
-        return list(map(lambda i: self.rules[i], self.rule_body_map[token]))
+    def get_rules_by_body_symbol(self, symbol: Symbol) -> list[GrammarRule]:
+        return list(map(lambda i: self.rules[i], self.rule_body_map[symbol]))
 
 
     def _add_rule(self, rule: GrammarRule) -> None:
@@ -86,90 +84,104 @@ class Grammar:
         else:
             self.rule_head_map[rule.head] = [i]
 
-        for body_token in rule.body:
-            if body_token in self.rule_body_map.keys():
-                if i not in self.rule_body_map[body_token]: 
-                    self.rule_body_map[body_token].append(i)
+        for body_symbol in rule.body:
+            if body_symbol in self.rule_body_map.keys():
+                if i not in self.rule_body_map[body_symbol]: 
+                    self.rule_body_map[body_symbol].append(i)
             else:
-                self.rule_body_map[body_token] = [i]
+                self.rule_body_map[body_symbol] = [i]
 
     def _populate_first_and_follow_sets(self) -> None:
-        def in_order_traverse(token: Token, visited: OrderedSet) -> None:
-            if token in self.terminals:
+        def in_order_traverse(symbol: Symbol, visited: OrderedSet) -> None:
+            if symbol in self.terminals:
                 return
             
-            for rule in self.get_rules_by_head(token):
-                for rule_body_token in rule.body:
-                    if rule_body_token not in visited:
-                        in_order_traverse(rule_body_token, visited|{rule_body_token})
+            for rule in self.get_rules_by_head(symbol):
+                for rule_body_symbol in rule.body:
+                    if rule_body_symbol not in visited:
+                        in_order_traverse(rule_body_symbol, visited|{rule_body_symbol})
 
-            self.first_sets[token] = self._find_first_set(token)
-            self.follow_sets[token] = self._find_follow_set(token)
+            self.first_sets[symbol] = self._find_first_set(symbol)
+            self.follow_sets[symbol] = self._find_follow_set(symbol)
 
         in_order_traverse(self.start_symbol, OrderedSet({self.start_symbol}))
         
         for nonterminal in self.nonterminals:
-            if nonterminal not in self.first_sets or nonterminal not in self.follow_sets:
-                print(f"WARNING: Variable '{nonterminal}' not reachable with the provided grammar.")
+            not_found = False 
+            if (nonterminal not in self.first_sets):
+                not_found = True
+                self.first_sets[nonterminal] = []
+            if (nonterminal not in self.follow_sets):
+                not_found = True
+                self.follow_sets[nonterminal] = []
 
-    def _find_first_set(self, token: Token, explored_tokens: OrderedSet = None) -> OrderedSet:
-        if explored_tokens is None: 
-            explored_tokens = OrderedSet()
+            if not_found:
+               print(f"WARNING: Variable '{nonterminal}' not reachable with the provided grammar.")
+
+    def _find_first_set(self, symbol: Symbol, explored_symbols: OrderedSet|None = None) -> OrderedSet:
+        if explored_symbols is None: 
+            explored_symbols = OrderedSet()
+          
+        if symbol.terminal:
+            return OrderedSet([symbol])
         
-        if token in self.terminals:
-            return OrderedSet([token])
-        
-        if token in self.first_sets:
-            return self.first_sets[token]
+        if symbol in self.first_sets:
+            return self.first_sets[symbol]
         
         first_set = OrderedSet()
-        for rule in self.get_rules_by_head(token):
-            current_rule_set = self._find_first_from_nonterminal_list(rule.body, explored_tokens)
+        for rule in self.get_rules_by_head(symbol):
+            current_rule_set = self._find_first_from_nonterminal_list(rule.body, explored_symbols)
             first_set.update(current_rule_set)
 
         return first_set
 
-    def _find_follow_set(self, token: Token, explored_tokens: OrderedSet = None) -> OrderedSet:
-        if explored_tokens is None:
-            explored_tokens = OrderedSet()
+    def _find_follow_set(self, symbol: Symbol, explored_symbols: OrderedSet|None = None) -> OrderedSet:
+        if explored_symbols is None:
+            explored_symbols = OrderedSet()
         
-        if token == self.start_symbol:
-            self.follow_sets[token] = OrderedSet({Token.eof()})
-            return self.follow_sets[token]
+        if symbol == self.start_symbol:
+            self.follow_sets[symbol] = OrderedSet({Symbol.eof})
+            return self.follow_sets[symbol]
         
-        if token in self.follow_sets:
-            return self.follow_sets[token]
+        if symbol in self.follow_sets:
+            return self.follow_sets[symbol]
         
         follow_set = OrderedSet()
-        for rule in self.get_rules_by_body_token(token):
-            if token not in rule.body: continue
+        for rule in self.get_rules_by_body_symbol(symbol):
+            if symbol not in rule.body: continue
 
-            token_index = rule.body.index(token)    
-            first_in_rest = self._find_first_from_nonterminal_list(rule.body[token_index+1:], OrderedSet())
-            follow_set.update(first_in_rest-{Token.epsilon()})
+            symbol_index = rule.body.index(symbol)    
+            first_in_rest = self._find_first_from_nonterminal_list(rule.body[symbol_index+1:], OrderedSet())
+            follow_set.update(first_in_rest-{Symbol.epsilon})
 
-            if Token.epsilon() in first_in_rest:
-                if rule.head not in explored_tokens:
-                    head_follow_set = self._find_follow_set(rule.head, explored_tokens|{rule.head})
+            if Symbol.epsilon in first_in_rest:
+                if rule.head not in explored_symbols:
+                    head_follow_set = self._find_follow_set(rule.head, explored_symbols|{rule.head})
                     follow_set.update(head_follow_set)
 
         return follow_set
 
-    def _find_first_from_nonterminal_list(self, token_list: list[str], explored_tokens: OrderedSet) -> OrderedSet:
-        if len(token_list) == 0:
-            return OrderedSet({Token.epsilon()})
+    def _find_first_from_nonterminal_list(self, symbol_list: list[Symbol], explored_symbols: OrderedSet|None = None) -> OrderedSet:
+        if explored_symbols is None:
+            explored_symbols = OrderedSet()
+        
+        if len(symbol_list) == 0:
+            return OrderedSet({Symbol.epsilon})
         
         first_set = OrderedSet()
         current_rule_set = OrderedSet()
-        for i, body_token in enumerate(token_list):
-            if body_token in explored_tokens: break
+        i=0 
+        for i, body_symbol in enumerate(symbol_list):
+            if body_symbol in explored_symbols: break
 
-            current_rule_set = self._find_first_set(body_token, explored_tokens|{body_token})
-            first_set.update(current_rule_set-{ Token.epsilon() })
+            current_rule_set = self._find_first_set(body_symbol, explored_symbols|{body_symbol})
+            first_set.update(current_rule_set-{ Symbol.epsilon })
 
-            if Token.epsilon() not in current_rule_set: break
+            if Symbol.epsilon not in current_rule_set: break
 
-        if i == len(token_list)-1 and Token.epsilon() in current_rule_set:
-            first_set.add(Token.epsilon())
+        if i == len(symbol_list)-1 and Symbol.epsilon in current_rule_set:
+            first_set.add(Symbol.epsilon)
 
         return first_set
+
+2

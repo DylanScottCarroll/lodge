@@ -1,6 +1,6 @@
-from .ordered_set import OrderedSet
 from .grammar import Grammar, GrammarRule
-from .tokenizer import Token
+from .symbol import Symbol
+from .ordered_set import OrderedSet
 
 class StateItem:
     """
@@ -8,14 +8,14 @@ class StateItem:
     Used as a component of a State object.
     """
 
-    def __init__(self, rule: GrammarRule, follow: tuple[Token, ...], position: int = 0) -> None:
-        self.head: Token = rule.head
-        self.body: tuple[Token, ...] = tuple(rule.body)
-        self.follow: tuple[Token, ...] = tuple(follow)
+    def __init__(self, rule: GrammarRule, follow: tuple[Symbol, ...], position: int = 0) -> None:
+        self.head: Symbol = rule.head
+        self.body: tuple[Symbol, ...] = tuple(rule.body)
+        self.follow: tuple[Symbol, ...] = tuple(follow)
         self.position: int = position
 
     @property
-    def next_token(self) -> Token|None:
+    def next_symbol(self) -> Symbol|None:
         if self.position < len(self.body):
             return self.body[self.position]
         else:
@@ -42,12 +42,12 @@ class StateItem:
     def __str__(self) -> str:
         string = f"[{self.head} -> "
         
-        for i, token in enumerate(self.body + (None,)):
+        for i, symbol in enumerate(self.body + (None,)):
             if i == self.position:
                 string += " •"
             
             if i < len(self.body):
-                string += f" {token}"
+                string += f" {symbol}"
 
         string += f", ('{"' , '".join(map(str, self.follow))}')]"
 
@@ -87,12 +87,12 @@ class State:
             if new_item not in visited:
                 self._close_helper(new_item, visited|{new_item})    
 
-    def get_transition_result(self, token: Token) -> 'State':
+    def get_transition_result(self, symbol: Symbol) -> 'State':
         def shift_item(item: StateItem) -> StateItem:
             return StateItem(item, item.follow, item.position+1)
         
         items = [shift_item(item) for item in self.items
-                 if (item.position < len(item.body)) and (item.body[item.position] == token)]
+                 if (item.position < len(item.body)) and (item.body[item.position] == symbol)]
         
         return State(self._grammar, *items)
 
@@ -128,8 +128,8 @@ class ParseTable:
         action_table (dict): A dictionary representing the Action table of the parse table.
         
     Methods:
-        goto(state: int, token: str) -> int:
-            * Returns the state to which the given state transitions on the given token.
+        goto(state: int, symbol: str) -> int:
+            * Returns the state to which the given state transitions on the given symbol.
         action(state: int, token: str) -> Tuple[str, ...]:
             * Returns the action and any additional arguments for the given state and token.
         __getitem__(key: Tuple[int, str]) -> Tuple[str, ...]: 
@@ -147,11 +147,11 @@ class ParseTable:
 
         self._generate_table()
 
-    def goto(self, state: int, token: Token) -> int:
+    def goto(self, state: int, token: Symbol) -> int:
         return self.goto_table.get((state, token.identifier), -1)
 
-    def action(self, state: int, token: Token) -> tuple[str, ...]:
-        return self.action_table.get((state, token.identifier), ("err",))
+    def action(self, state: int, symbol: Symbol) -> tuple[str, ...]:
+        return self.action_table.get((state, symbol.identifier), ("err",))
 
     def __getitem__(self, key: tuple[int, str]) -> tuple[str, ...]:
         return self.action(key[0], key[1])
@@ -191,7 +191,7 @@ class ParseTable:
             for item in state.items:
                 if item.position == len(item.body):
                     if item.head == self._grammar.start_symbol:
-                        self.action_table[id, Token.eof().identifier] = ("acc",)
+                        self.action_table[id, Symbol.eof.identifier] = ("acc",)
                     else:
                         for follow in item.follow:
                             self.action_table[(id, follow.identifier)] = ("red", item.head, len(item.body))
