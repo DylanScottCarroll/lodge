@@ -1,42 +1,40 @@
-ε = /[\t ]/
+ε = /[\t ]+/
 newline = /\n/
+name = /[a-zA-Z_][a-zA-Z_0-9]*|ε/
 regex = /\/.*\// 
-id = /[a-zZ-Z_][a-zA-Z_0-9]+|ε/
 number = /[0-9]+/
 arrow = /->/
+action_arrow = />>/
+
+literal = /`.+`|[^=]/
+
+* = /./
+
+start -> lines
+
+id -> name
+id -> literal
 
 lines -> line newline lines
-lines -> ε
+lines -> line
 
-line -> id line_body 
-line -> newline 
+line -> ε
+line -> id = regex
+line -> id arrow cfg_body
+line -> id arrow cfg_body action_routine
 
-line_body -> token_body
-line_body -> cfg_body
-
-token_body -> = regex
-cfg_body -> arrow cfg_item cfg_r
-
-cfg_item -> id
-cfg_item -> action_routine 
-
-cfg_r -> cfg_item cfg_r
-cfg_r -> ε
+cfg_body -> id cfg_body
+cfg_body -> id
 
 
-action_routine -> { routine_id = routine_rhs }
-routine_rhs -> routine_piece routine_rhs_r
+action_routine -> action_arrow . id = action_body
 
-routine_rhs_r -> routine_piece + routine_rhs_r
-routine_rhs_r -> ε
+action_body -> action_id
+action_body -> [ action_id_list ]
+action_body -> ( id ) [ action_id_list ]
 
-routine_piece -> routine_id
-routine_piece -> routine_node
+action_id -> id . id 
+action_id -> id ~ number . id
 
-routine_node ->  ( routine_id , routine_node_r )
-routine_node_r -> routine_id routine_node_r
-routine_node_r -> ε
-
-routine_id -> id opt_num . id 
-opt_num -> ~ number
-opt_num -> ε
+action_id_list -> action_id action_id_list
+action_id_list -> action_id

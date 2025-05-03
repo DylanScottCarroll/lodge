@@ -8,7 +8,7 @@ class Token:
         self.span:tuple[int, int] = span
 
     def __str__(self):
-        return f"[{str(self.symbol)} '{self.text}']"
+        return f"[{str(self.symbol)} {repr(self.text)}]"
     
     def __repr__(self):
         return f"Token({str(self)})"
@@ -54,20 +54,20 @@ class Tokenizer:
                 match = new_match
                 symbol = current_symbol
         
-        if match is None or symbol is None:
+        if (match is None) or (symbol is None):
             # If no token matches, treat a single character as a tokenp
-            symbol = Symbol(text[position], terminal=True)
-            start, end = position, position+1
-        else:
-            start, end = match.span()
-
+            print("Syntax Error! No token match")
+            breakpoint()
         
+        start, end = match.span() #type: ignore
 
         # Return a new token
         if symbol == Symbol.epsilon:
             return None, end
+        elif symbol == Symbol("*", True):
+            symbol = Symbol(text[start:end], True)
+            return Token(symbol, text[start:end], (start, end)), end
         else:
-
             return Token(symbol, text[start:end], (start, end)), end
     
 

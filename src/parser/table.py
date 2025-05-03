@@ -12,6 +12,10 @@ class StateItem:
     def __init__(self, rule: GrammarRule, follow: tuple[Symbol, ...], position: int = 0) -> None:
         self.head: Symbol = rule.head
         self.body: tuple[Symbol, ...] = tuple(rule.body)
+        
+        if self.body == (Symbol.epsilon,):
+            self.body = ()
+
         self.follow: tuple[Symbol, ...] = tuple(follow)
         self.position: int = position
 
@@ -24,8 +28,8 @@ class StateItem:
         else:
             return None
 
-    def __eq__(self, other: 'StateItem') -> bool:
-        if hash(self) != hash(other):
+    def __eq__(self, other) -> bool:
+        if hash(self) != hash(other) or not isinstance(other, StateItem):
             return False
         
         elif (self.head == other.head and self.body == other.body and 
@@ -56,6 +60,9 @@ class StateItem:
 
         return string
 
+    def __repr__(self):
+        return str(self)
+
 class State:
     """
     A set of partially completed grammar rules, representing a state in a partially parsed grammar.
@@ -66,7 +73,7 @@ class State:
     """
 
     def __init__(self, grammar: Grammar, *items: StateItem) -> None:
-        self.items: OrderedSet[StateItem] = OrderedSet(items)
+        self.items: OrderedSet = OrderedSet(items)
         self._grammar: Grammar = grammar
 
         # Create closure
@@ -77,6 +84,9 @@ class State:
 
 
     def _close_helper(self, item: StateItem, visited: OrderedSet) -> None:
+        if item.body == ():
+            return
+
         next_symbol:Symbol = item.body[item.position]
 
         if next_symbol.terminal:
@@ -198,7 +208,7 @@ class ParseTable:
         for state, id in self.state_ids.items():
             for item in state.items:
                 item: StateItem
-                if item.finished:
+                if item.finished: # or (item.body == [Symbol.epsilon]):
                     if item.head == self._grammar.start_symbol:
                         self.action_table[id, Symbol.eof] = ("acc",)
                     else:
@@ -225,7 +235,8 @@ class ParseTable:
 
         string += " "*5 + "│"
         for token in self._grammar.terminals:
-            string += f"{str(token):^{spacing}}"
+            string += f"{str(token
+            ):^{spacing}}"
 
 
         string += "\n" + "─"*5 + "┼" +  "─"*(spacing*len(self._grammar.terminals) )

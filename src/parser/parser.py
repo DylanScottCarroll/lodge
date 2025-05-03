@@ -2,12 +2,13 @@ from typing import List, Optional, Tuple
 from .table import ParseTable
 from .tokenizer import Token, TokenStream
 from .symbol import Symbol
+from .grammar import Grammar
 
 
 class ParseNode:
-    def __init__(self, symbol:Symbol, parent:Symbol|None=None, children:list|None=None):
+    def __init__(self, symbol:Symbol, parent:'ParseNode|None'=None, children:list|None=None):
         self.symbol:Symbol = symbol
-        self.parent:ParseNode = parent
+        self.parent:ParseNode|None= parent
         self.children: list[ParseNode] = children or []
         self.attributes = {}
 
@@ -24,7 +25,7 @@ class ParseNode:
                 string += "\n" + child.format_tree(level+1)
             
             elif isinstance(child, Token):
-                string +=  f' : "{child.text.replace("\n", "\\n")}"'
+                string +=  "\n" + "    "*(level+1) + f'{child.symbol} : "{child.text.replace("\n", "\\n")}"'
             else:
                 string += "\n" + "    "*(level+1) + f'<{str(type(child))} : "{str(child)}">' + "\n"
 
@@ -40,68 +41,79 @@ class ParseNode:
 class Parser:
     """Encapsulates the parsing process for a given grammar."""
 
-    def __init__(self, grammar: str):
+    def __init__(self, grammar: Grammar):
         self.grammar = grammar
         self.table = ParseTable(grammar)
 
+    def show_state(self, stack, state, token):
+        print("="*100)
+        print("Stack:")
+        for node in stack:
+            if isinstance(node[0], ParseNode):
+                node[0].print()
+            else:
+                print(node[0])
+        print("-"*50)
+        print("Parser state:")
+        print(self.table.states[state])
+        
+        print("-"*50)
+        print(f"Next Token: {token}")
+
     def __call__(self, token_stream: TokenStream) -> ParseNode:
         # Make the stack of named tuples
-        stack: List[Tuple[ParseNode|None, int]] = [(None, 0)]
+        stack: list[tuple]= [(None, 0)]
 
 
+        #for state in self.table.states:
+        #    for item in state.items:
+        #        print(item)
+        #
+        #    print("="*50)
+        #print(self.table)
+        
 
         while True:
             _, state = stack[-1]
-            
-            #token = string[0] if len(string) > 0 else "$"
             token = token_stream.peek()
-            
-            # print("="*80)
-            
-            # print("Stack:\n\t", stack, end="\n\n")
-            # print("State:", end="\n\t")
-            # print(*self.table.states[state].items, sep="\n\t", end="\n\n")
 
-            # print("Next Token:\n\t", token, end="\n\n")
 
-            # print("Action:\n\t", self.table[state, token.symbol])
+            self.show_state(stack, state, token)
+            input()
 
-            # print()
+
             action = self.table[state, token.symbol]
 
             if action[0] == "shft":
                 _, goto = action
 
-                new_node = ParseNode(token.symbol, children=[token])
+                # new_node = ParseNode(token.symbol, children=[token])
+                new_node = token
 
                 stack.append((new_node, goto))
 
                 token_stream.pop()
 
             elif action[0] == "red":
-                _, head, body_length = action
+                _, head, body_length = action #type: ignore
+                head: Symbol
+                body_length: int
                 
-                children = [stack_item[0] for stack_item in stack[-body_length:]]
-                stack = stack[:-body_length]
-                
-                new_node = ParseNode(head, children=children)
+                children = [stack_item[0] for stack_item in stack[len(stack)-body_length:] ]
+                stack = stack[:len(stack)-body_length]
 
+                new_node = ParseNode(head, children=children)
                 goto_state = self.table[stack[-1][1], head][1]    
-                
                 stack.append((new_node, goto_state))
 
             elif action[0] == "acc":
                 return ParseNode(self.grammar.start_symbol, None, [stack[1][0]])
             
             else:
+
+                self.show_state(stack, state, token)
+
                 print(f"ERROR: Unexpected token {token}")
-
-                print("Stack Contents:")
-                print(stack)
-
-                print("Possible parser states:")
-                print(self.table.states[state])
-                    
-                print()
                 breakpoint()
                 exit()
+

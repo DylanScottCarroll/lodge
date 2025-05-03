@@ -1,4 +1,4 @@
-ε = /\s/
+ε = /\s+/
 num = /[0-9]+/
 identifier = /[a-zA-Z_]+/
 sum_operator = /\+|-/
