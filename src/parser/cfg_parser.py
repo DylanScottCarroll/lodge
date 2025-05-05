@@ -31,7 +31,7 @@ class CFG_Parser:
             _, state = stack[-1]
             token = token_stream.peek()
 
-            action = self.action_table[state, token.symbol]
+            action = self.action_table.get((state, token.symbol), Error())
 
             if isinstance(action, Shift):
                 new_node = ParseNode(token.symbol, tokens=[token])

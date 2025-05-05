@@ -4,7 +4,7 @@ import readline
 import pickle
 
 def main():
-    syntax = SyntaxDescription("calc.lang")
+    syntax = SyntaxDescription("cfg.lang")
 
     string = input()
 
@@ -19,10 +19,8 @@ def main():
     print(tree.attributes)
 
 
-if __name__ == "__main__":
-    main()
-    exit()
 
+def refresh_cfg_parser():
     syntax = BasicSyntaxDescription("cfg.lang")
     
     cfg_parser = CFG_Parser(syntax.parser.table.goto_table, syntax.parser.table.action_table)
@@ -42,4 +40,8 @@ if __name__ == "__main__":
 
     with open("./parser/cfg_parser.pkl", "wb") as f:
         pickle.dump((syntax.tokenizer, cfg_parser), f)
+
+if __name__ == "__main__":
+    main()
+    #refresh_cfg_parser()
 

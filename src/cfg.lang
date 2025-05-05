@@ -8,7 +8,7 @@ number = /[0-9]+/
 arrow = /->/
 action_arrow = />>/
 
-literal = /`.+`|[^=~.,\(\)\[\]]/
+literal = /`.+`|[^=.\[\]\(\)\{\}~,]/
 
 * = /./
 
@@ -24,12 +24,16 @@ line -> id arrow cfg_body action_routines
 
 symbol -> id
 symbol -> literal
-symbol -> (
-symbol -> )
+symbol -> =
+symbol -> .
 symbol -> [
 symbol -> ]
 symbol -> {
 symbol -> }
+symbol -> (
+symbol -> )
+symbol -> ~
+symbol -> ,
 
 cfg_body -> symbol cfg_body
 cfg_body -> symbol
@@ -50,8 +54,3 @@ action_val -> string_literal
 action_val_list -> action_val , action_val_list
 action_val_list -> action_val
 action_val_list -> ε
-
-node_attrs -> ε
-node attrs -> , node_attr node_attrs
-node_attr -> id : action_val
-
