@@ -1,6 +1,19 @@
 from .ordered_set import OrderedSet
 from .symbol import Symbol
-            
+
+from typing import Callable
+
+class ActionRoutine:
+    def __init__(self, dest:str, val_type:str, val_args:tuple):
+        self.dest:str = dest
+        
+        self.val_type = val_type
+        if val_type not in ["Node", "List", "Val"]:
+            raise ValueError(f"The val_type of an ActionRoutine must be 'Node', 'List', or 'Val'. Not '{val_type}'.")
+
+        self.val_args = val_args
+
+
 class GrammarRule:
     """
     Represents a production rule in a grammar.
@@ -10,9 +23,11 @@ class GrammarRule:
         body (list): A list of symbols on the right-hand side of the rule.
     """
     
-    def __init__(self, head: Symbol, body: list[Symbol]) -> None:
+    def __init__(self, head: Symbol, body: list[Symbol], action_routines:list[ActionRoutine]|None=None) -> None:
         self.head = head
         self.body = body
+
+        self.action_routines = action_routines or []
 
     def __str__(self) -> str:
         return f"{str(self.head)} -> {' '.join(map(str, self.body))}"
@@ -183,5 +198,3 @@ class Grammar:
             first_set.add(Symbol.epsilon)
 
         return first_set
-
-2

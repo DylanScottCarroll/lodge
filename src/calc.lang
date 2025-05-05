@@ -2,18 +2,20 @@
 num = /[0-9]+/
 identifier = /[a-zA-Z_]+/
 sum_operator = /\+|-/
-mul_operator = /\*|//
+mul_operator = /\*|\//
 
-start -> exp
+* = /./
 
-exp -> sums
+start -> exp                                >> .node = exp.node
 
-sums -> sums sum_operator products
-sums -> products
+exp -> sums                                 >> .node = sums.node
 
-products -> products mul_operator products
-products -> atom
-products -> ( exp )
+sums -> sums sum_operator products          >> .node = (sum_operator.token)[sums.node, products.node]
+sums -> products                            >> .node = products.node
 
-atom -> num
-atom -> identifier
+products -> products mul_operator products  >> .node = (mul_operator.token)[products~0.node, products~1.node]
+products -> atom                            >> .node = atom.node
+products -> ( exp )                         >> .node = exp.node  
+
+atom -> num                                 >> .node = (num.token)[]
+atom -> identifier                          >> .node = (identifier.token)[]

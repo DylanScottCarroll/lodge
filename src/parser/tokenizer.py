@@ -15,7 +15,7 @@ class Token:
 
 
 class Tokenizer:
-    def __init__(self, rules:list[tuple]) -> None:
+    def __init__(self, rules:list[tuple[Symbol, str]]) -> None:
         # Build the compound regular expression that describes the tokenizer
         self.rules = []
         for symbol, pattern in rules:
@@ -55,11 +55,11 @@ class Tokenizer:
                 symbol = current_symbol
         
         if (match is None) or (symbol is None):
-            # If no token matches, treat a single character as a tokenp
             print("Syntax Error! No token match")
             breakpoint()
-        
-        start, end = match.span() #type: ignore
+            exit()
+
+        start, end = match.span()
 
         # Return a new token
         if symbol == Symbol.epsilon:

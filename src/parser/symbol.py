@@ -1,24 +1,12 @@
-class _SymbolMeta(type):
-    def __new__(cls, name, bases, attrs):
-        Symbol = super().__new__(cls, name, bases, attrs)
-        
-        Symbol.epsilon = Symbol("ε", True, _special_type="epsilon")
-        Symbol.eof = Symbol("$", True, _special_type="eof")
-        
-        return Symbol
-
-class Symbol(metaclass=_SymbolMeta):
+class Symbol():
     """A symbol in the syntax description used by the tokenizer and grammar."""
 
-    epsilon:'Symbol' = None# Filled in by metaclass
-    eof:'Symbol' = None
+    epsilon:'Symbol' # Filled in by metaclass
+    eof:'Symbol'
 
     instances = {}
 
-    # Improve size and speed with slots
-    # __slots__ = ("identifier", "terminal", "_special_type", "_frozen")
-
-    def __new__(cls, identifier:str, terminal:bool, *, _special_type:str=""):
+    def __new__(cls, identifier:str|None=None, terminal:bool=True):
         # Check if the symbol already exists
         if identifier in cls.instances:
             cached = cls.instances[identifier]
@@ -28,18 +16,19 @@ class Symbol(metaclass=_SymbolMeta):
         
         # Create a new instance
         instance = super().__new__(cls)
-        cls.instances[identifier] = instance
+        
+        if identifier is not None:
+            cls.instances[identifier] = instance
+        
         return instance
 
-    def __init__(self, identifier:str, terminal:bool, *, _special_type:str=""):
+    def __init__(self, identifier:str, terminal:bool=True, *, _special_type:str=""):
         self._frozen = False
 
         self.identifier:str = identifier
         self.terminal:bool = terminal
 
-        self._special_type:str = _special_type
         self._frozen = True
-
 
 
     def __eq__(self, other):
@@ -47,8 +36,7 @@ class Symbol(metaclass=_SymbolMeta):
             return NotImplemented
 
         return self.identifier == other.identifier \
-            and self.terminal == other.terminal \
-            and self._special_type == other._special_type
+            and self.terminal == other.terminal
     
     def __setattr__(self, name, value):
         # Make symbols immutable
@@ -58,13 +46,13 @@ class Symbol(metaclass=_SymbolMeta):
             super().__setattr__(name, value)
 
     def __hash__(self):
-        return hash(self.identifier) ^ hash(self.terminal) ^ hash(self._special_type)
+        return hash(self.identifier) ^ hash(self.terminal)
     
     def __str__(self):
             return f"{self.identifier}"
 
     def __repr__(self):
-        if self._special_type != "":
-            return f"Symbol({self._special_type})"
-        else:
-            return f"Symbol({self.identifier!r}, {'terminal' if self.terminal else 'non-terminal'})"
+        return f"Symbol({self.identifier!r}, {'terminal' if self.terminal else 'non-terminal'})"
+
+Symbol.epsilon = Symbol("ε")
+Symbol.eof = Symbol("$")

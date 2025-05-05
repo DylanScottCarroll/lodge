@@ -1,19 +1,18 @@
 ε = /[\t ]+/
+
 newline = /\n/
-name = /[a-zA-Z_][a-zA-Z_0-9]*|ε/
+id = /[a-zA-Z_][a-zA-Z_0-9]*|ε|\*/
 regex = /\/.*\// 
+string_literal = /".*"/
 number = /[0-9]+/
 arrow = /->/
 action_arrow = />>/
 
-literal = /`.+`|[^=]/
+literal = /`.+`|[^=~.,\(\)\[\]]/
 
 * = /./
 
 start -> lines
-
-id -> name
-id -> literal
 
 lines -> line newline lines
 lines -> line
@@ -21,20 +20,38 @@ lines -> line
 line -> ε
 line -> id = regex
 line -> id arrow cfg_body
-line -> id arrow cfg_body action_routine
+line -> id arrow cfg_body action_routines
 
-cfg_body -> id cfg_body
-cfg_body -> id
+symbol -> id
+symbol -> literal
+symbol -> (
+symbol -> )
+symbol -> [
+symbol -> ]
+symbol -> {
+symbol -> }
 
+cfg_body -> symbol cfg_body
+cfg_body -> symbol
+
+action_routines -> action_routine action_routines
+action_routines -> action_routine
 
 action_routine -> action_arrow . id = action_body
 
-action_body -> action_id
-action_body -> [ action_id_list ]
-action_body -> ( id ) [ action_id_list ]
+action_body -> action_val
+action_body -> [ action_val_list ]
+action_body -> ( action_val ) { action_val_list }
 
-action_id -> id . id 
-action_id -> id ~ number . id
+action_val -> id . id 
+action_val -> id ~ number . id
+action_val -> string_literal
 
-action_id_list -> action_id action_id_list
-action_id_list -> action_id
+action_val_list -> action_val , action_val_list
+action_val_list -> action_val
+action_val_list -> ε
+
+node_attrs -> ε
+node attrs -> , node_attr node_attrs
+node_attr -> id : action_val
+

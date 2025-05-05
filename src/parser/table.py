@@ -1,4 +1,4 @@
-from .grammar import Grammar, GrammarRule
+from .grammar import Grammar, GrammarRule, ActionRoutine
 from .symbol import Symbol
 from .ordered_set import OrderedSet
 from .tokenizer import Token
@@ -12,6 +12,7 @@ class StateItem:
     def __init__(self, rule: GrammarRule, follow: tuple[Symbol, ...], position: int = 0) -> None:
         self.head: Symbol = rule.head
         self.body: tuple[Symbol, ...] = tuple(rule.body)
+        self.action_routines:list[ActionRoutine] = rule.action_routines
         
         if self.body == (Symbol.epsilon,):
             self.body = ()
@@ -131,6 +132,34 @@ class State:
         return str(self)
 
 
+class Accept:
+    def __init__(self, start:Symbol, action_routines:list[ActionRoutine]|None=None):
+        self.start = start
+        self.action_routines = action_routines or []
+
+    def __str__(self):
+        return "Acc"
+
+class Reduce:
+    def __init__(self, head: Symbol, body_length:int, action_routines:list[ActionRoutine]|None=None):
+        self.head = head
+        self.body_length = body_length
+        self.action_routines = action_routines or []
+    def __str__(self):
+        return f"Red({self.head.identifier} {self.body_length})"
+
+class Shift:
+    def __init__(self, new_state: int):
+        self.new_state = new_state
+    def __str__(self):
+        return f"Shf({self.new_state})"
+
+class Error:
+    def __str__(self):
+        return "Err"
+
+type Action = (Accept | Reduce | Shift | Error)
+
 class ParseTable:
     """
     Represents an LR(1) parse table for a given grammar.
@@ -156,20 +185,16 @@ class ParseTable:
         self.states: list[State] = []
         self.state_ids: dict[State, int] = {}
         
-        self.goto_table: dict[tuple[int, Symbol], int] = {} #(state, token identifier) -> state
-        self.action_table: dict[tuple[int, Symbol], tuple[str, ...]] = {} #(state, token identifier) -> (action, *args)
+        self.goto_table: dict[tuple[int, Symbol], int] = {}
+        self.action_table: dict[tuple[int, Symbol], Action] = {}
 
         self._generate_table()
 
     def goto(self, state: int, symbol: Symbol) -> int:
         return self.goto_table.get((state, symbol), -1)
 
-    def action(self, state: int, symbol: Symbol) -> tuple[str, ...]:
-        action =  self.action_table.get((state, symbol), ("err",))
-        return action
-
-    def __getitem__(self, key: tuple[int, Symbol]) -> tuple[str, ...]: # TODO: Retype action values
-        return self.action(key[0], key[1])
+    def action(self, state: int, symbol: Symbol) -> Action:
+        return self.action_table.get((state, symbol), Error())
 
     def _generate_table(self) -> None:
         # Make Start State
@@ -210,17 +235,18 @@ class ParseTable:
                 item: StateItem
                 if item.finished: # or (item.body == [Symbol.epsilon]):
                     if item.head == self._grammar.start_symbol:
-                        self.action_table[id, Symbol.eof] = ("acc",)
+                        self.action_table[id, Symbol.eof] = Accept(self._grammar.start_symbol, item.action_routines)
                     else:
                         for follow in item.follow:
-                            self.action_table[(id, follow)] = ("red", item.head, len(item.body))
+                            self.action_table[(id, follow)] = Reduce(item.head, len(item.body), item.action_routines)
                 
                 elif (id, item.next_symbol) in self.goto_table.keys():
-                    self.action_table[id, item.next_symbol] = ("shft", self.goto_table[id, item.next_symbol])
-
+                    id: int
+                    if item.next_symbol is not None:
+                        self.action_table[id, item.next_symbol] = Shift(self.goto_table[id, item.next_symbol])
                 else:
-                    breakpoint()
                     print(f"Error, no valid action for {item} in state {id}:{state}")
+                    breakpoint()
 
 
     def __str__(self) -> str:
@@ -231,7 +257,7 @@ class ParseTable:
             print(f"State {id}:{state}\n")
         
         string += "\nAction Table:\n"
-        spacing = 15
+        spacing = 20
 
         string += " "*5 + "│"
         for token in self._grammar.terminals:
@@ -246,11 +272,11 @@ class ParseTable:
             string += f"\n{id:>4} │"
             
             for token in self._grammar.terminals:
-                action = self.action_table.get((id, token), ("",))
-                action = " ".join(map(str, action))
+                action = self.action_table.get((id, token), Error())
+                action = str(action)
                 string += f"{action:^{spacing}}"
             
-        string += "\n" +  "="*200 + "\n"
+        #string += "\n" +  "="*200 + "\n"
 
         string += "\n\nGoto Table:\n"
         spacing = 8
@@ -260,7 +286,7 @@ class ParseTable:
             string += f"{str(token):^{len(str(token))+4}}"
 
 
-        string += "\n" + "─"*5 + "┼" +  "─"*(spacing*len(self._grammar.terminals) )
+        string += "\n" + "─"*5 + "┼" +  "─"*(spacing*(len(self._grammar.terminals)+len(self._grammar.nonterminals)+1) )
 
         for state, id in self.state_ids.items():
             string += f"\n{id:>4} │"
