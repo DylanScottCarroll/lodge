@@ -30,9 +30,11 @@ def refresh_cfg_parser():
     
     cfg_parser = CFG_Parser(syntax.parser.table.goto_table, syntax.parser.table.action_table)
    
-    with open("cfg.lang") as f:
+    print(f"{'='*100}\n{' Testing on Test Language ':=^100}\n{'='*100}")
+    with open("test.lang") as f:
         string = f.read()
-
+    
+    print("Token Stream:")
     token_stream = syntax.tokenizer(string)
     while (t := token_stream.pop()).symbol != Symbol.eof:
         print(t, end=" ")
@@ -41,13 +43,35 @@ def refresh_cfg_parser():
 
     token_stream = syntax.tokenizer(string)
     tree = syntax.parser(token_stream)
+    print("Parse Tree:")
     print(tree)
 
+    print(f"{' Testing on Self ':=^100}")
+    
+    with open("cfg.lang") as f:
+        string = f.read()
+    
+    print("Token Stream:")
+    token_stream = syntax.tokenizer(string)
+    while (t := token_stream.pop()).symbol != Symbol.eof:
+        print(t, end=" ")
+    print()
+
+
+    token_stream = syntax.tokenizer(string)
+    tree = syntax.parser(token_stream)
+    print("Parse Tree:")
+    print(tree)
+
+
+    print("Saving parse tables...")
     with open("./parser/cfg_parser.pkl", "wb") as f:
         pickle.dump((syntax.tokenizer, cfg_parser), f)
 
+    print("Done!")
+
 if __name__ == "__main__":
-    main()
-    #refresh_cfg_parser()
+    #main()
+    refresh_cfg_parser()
 
 
