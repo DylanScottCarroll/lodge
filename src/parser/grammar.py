@@ -80,6 +80,8 @@ class Grammar:
 
         for rule in rules:
             self._add_rule(rule)
+
+        self._check_rules()
         
         self._populate_first_and_follow_sets()        
 
@@ -105,6 +107,14 @@ class Grammar:
                     self.rule_body_map[body_symbol].append(i)
             else:
                 self.rule_body_map[body_symbol] = [i]
+    
+    def _check_rules(self):
+        """Perform a series of validations for the grammar rules"""
+
+        for i, head in enumerate(self.rule_head_map.keys()):
+            if head not in self.rule_body_map.keys() and i!=0:
+                print(f"WARNING: Symbol '{head}' appears in no rule body, so is not accessible")
+                self.rule_body_map[head] = []
 
     def _populate_first_and_follow_sets(self) -> None:
         def in_order_traverse(symbol: Symbol, visited: OrderedSet) -> None:
@@ -122,16 +132,11 @@ class Grammar:
         in_order_traverse(self.start_symbol, OrderedSet({self.start_symbol}))
         
         for nonterminal in self.nonterminals:
-            not_found = False 
             if (nonterminal not in self.first_sets):
-                not_found = True
                 self.first_sets[nonterminal] = []
             if (nonterminal not in self.follow_sets):
-                not_found = True
                 self.follow_sets[nonterminal] = []
 
-            if not_found:
-               print(f"WARNING: Variable '{nonterminal}' not reachable with the provided grammar.")
 
     def _find_first_set(self, symbol: Symbol, explored_symbols: OrderedSet|None = None) -> OrderedSet:
         if explored_symbols is None: 
