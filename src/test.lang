@@ -1,8 +1,4 @@
-ε = /\s/
-num = /[0-9]+/
-sum_operator = /\+|-/
+start -> S
 
-start -> nums
-
-nums -> num sum_operator nums
-nums -> num
+S -> * `bat`
+S -> + `bat`

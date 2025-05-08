@@ -30,22 +30,12 @@ class SyntaxDescription:
         raw_token_rules, raw_grammar_rules =  self._read_file(filename)
 
         token_rules, terminals = self._process_token_rules(raw_token_rules)
-        grammar_rules, start_symbol, nonterminals, terminals = self._process_grammar_rules(raw_grammar_rules, terminals)
+        grammar_rules, start_symbol, nonterminals, terminals, token_rules = self._process_grammar_rules(raw_grammar_rules, terminals, token_rules)
     
 
         self.grammar = Grammar(grammar_rules, nonterminals, terminals, start_symbol)
         self.parser = Parser(self.grammar)
         self.tokenizer =  Tokenizer(token_rules)
-
-        print(*self.tokenizer.rules, sep="\n")
-        
-        print("#"*100)
-
-        print(*self.grammar.rules, sep="\n")
-       
-        print("#"*100)
-        
-        print(self.parser.table)
 
     def _process_token_rules(self, raw_rules) -> tuple[list, OrderedSet]:
         rules = []
@@ -56,19 +46,22 @@ class SyntaxDescription:
 
         return rules, terminals
 
-    def _process_grammar_rules(self, raw_rules, terminals):
+    def _process_grammar_rules(self, raw_rules, terminals, token_rules):
         # Find all nonterminals
         nonterminal_identifiers:OrderedSet = OrderedSet(head for head, _, _ in raw_rules)
         
+        literal_tokens = []
+
         rules = []
         nonterminals = OrderedSet()
         
         for head, body, actions in raw_rules:
             head = Symbol(head, False)
              
-            body = [
+
+            body_symbols = [
                 Symbol(identifier, identifier not in nonterminal_identifiers)
-                for identifier in body 
+                for _, identifier in body 
             ]
 
             action_routines = [
@@ -77,16 +70,22 @@ class SyntaxDescription:
             ]
 
             # Update Symbol Sets
-            terminals.update([symbol for symbol in body if symbol.terminal])
+            terminals.update([symbol for symbol in body_symbols if symbol.terminal])
             nonterminals.add(head)
 
-            # Add new grammar rule
-            rules.append(GrammarRule(head, body, action_routines))
+            #Add to literal expression
 
+            literal_tokens.extend([re.escape(symbol) for kind, symbol in body if kind == "literal"])
+    
+            # Add new grammar rule
+            rules.append(GrammarRule(head, body_symbols, action_routines))
+
+        literal_token_rule = ( Symbol("*", True), "|".join(literal_tokens) )
+        token_rules.insert(0, literal_token_rule)
 
         start_symbol = rules[0].head
         
-        return rules, start_symbol, nonterminals, terminals
+        return rules, start_symbol, nonterminals, terminals, token_rules
 
 
     def _read_file(self, filename:str) -> tuple[list, list]:
@@ -98,7 +97,7 @@ class SyntaxDescription:
         
         token_stream = cfg_tokenizer(text)
         tree = cfg_parser(token_stream)
-                    
+
         return self._unpack_tree(tree)
 
     def _unpack_tree(self, tree) -> tuple[list, list]:
@@ -126,13 +125,16 @@ class SyntaxDescription:
         
         body = []
         for symbol in iter_recursed_node(line["cfg_body"], "symbol", "cfg_body"):
-            if "literal" in symbol:
-                body.append(symbol[0].attributes["token"][1:-1])
+            if "literal" in symbol: 
+                string = symbol["literal"].attributes["token"]
+                if string[0] == '`' and string[-1] == '`':
+                    string = string[1:-1]
+                body.append(("literal", string))
+            elif "id" in symbol:
+                body.append(("id", symbol["id"].attributes["token"]))
             else:
-                body.append(symbol[0].attributes["token"])
+                body.append(("literal", symbol[0].attributes["token"]))
 
-            print(body[0])
-        
         if "action_routines" in line:
             routines = self._unpack_action_routines(line["action_routines"])
         else:
@@ -153,11 +155,11 @@ class SyntaxDescription:
     def _unpack_action_body(self, action_body):
         if action_body[0].symbol.identifier == "(":
             # Parse routine node declaration   
-            node_val = self._unpack_action_val(action_body["action_val"])
+            node_val = self._unpack_action_id(action_body["action_id"])
             
             node_children = tuple([
-                self._unpack_action_val(action_val) for action_val in
-                iter_recursed_node(action_body["action_val_list"], "action_val", "action_val_list")
+                self._unpack_node_id(action_id) for action_id in
+                iter_recursed_node(action_body["node_ids"], "node_id", "node_ids")
             ])
             
             return ("Node", (node_val,) + node_children)
@@ -165,24 +167,29 @@ class SyntaxDescription:
         elif action_body[0].symbol.identifier == "[":
             # Parse routine list declaration
             node_children = tuple([
-                self._unpack_action_val(action_val) for action_val in
-                iter_recursed_node(action_body["action_val_list"], "action_val", "action_val_list")
+                self._unpack_action_id(action_id) for action_id in
+                iter_recursed_node(action_body["list_vals"], "action_id", "list_vals")
             ])
             
             return ("List", node_children)
        
         else:
             # Parse simple routine
-            return ("Val", ( self._unpack_action_val(action_body["action_val"]), ))
-
+            return ("Val", ( self._unpack_action_id(action_body["action_id"]), ))
     
-    def _unpack_action_val(self, action_val) -> tuple:
-        if "string_literal" in action_val:
-            return (action_val["string_literal"].attributes["token"][1:-1] , )
+    def _unpack_node_id(self, node_id) -> tuple:
+        head = node_id["id"].attributes["token"]  
+        body = self._unpack_action_id(node_id["action_id"])
+        
+        return (head, body)
+
+    def _unpack_action_id(self, action_id) -> tuple:
+        if "string_literal" in action_id:
+            return (action_id["string_literal"].attributes["token"][1:-1] , )
         else:
-            index = int(action_val["number"].attributes["token"]) if ("number" in action_val) else 0
-            id1 = action_val["id", 0].attributes["token"]
-            id2 = action_val["id", 1].attributes["token"]
+            index = int(action_id["number"].attributes["token"]) if ("number" in action_id) else 0
+            id1 = action_id["id", 0].attributes["token"]
+            id2 = action_id["id", 1].attributes["token"]
             
             return (id1, index, id2)
 

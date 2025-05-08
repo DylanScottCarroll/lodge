@@ -4,18 +4,16 @@ identifier = /[a-zA-Z_]+/
 sum_operator = /\+|-/
 mul_operator = /\*|\//
 
-* = /./
-
 start -> exp                                >> .node = exp.node
 
 exp -> sums                                 >> .node = sums.node
 
-sums -> sums sum_operator products          >> .node = (sum_operator.token){sums.node, products.node}
+sums -> sums sum_operator products          >> .node = (sum_operator.token){l:sums.node, r:products.node}
 sums -> products                            >> .node = products.node
 
-products -> products mul_operator products  >> .node = (mul_operator.token){products~0.node, products~1.node}
+products -> products mul_operator products  >> .node = (mul_operator.token){l:products~0.node, r:products~1.node}
 products -> atom                            >> .node = atom.node
-products -> ( exp )                         >> .node = exp.node  
+products -> `(` exp )                       >> .node = exp.node  
 
 atom -> num                                 >> .node = (num.token){}
 atom -> identifier                          >> .node = (identifier.token){}

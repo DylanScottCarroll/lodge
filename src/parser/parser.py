@@ -62,8 +62,6 @@ class ParseNode:
             return False
 
 
-    def print(self):
-        print(self.format_tree())
 
     def format_tree(self, level:int=0):
         if len(self.children) > 0:
@@ -78,11 +76,31 @@ class ParseNode:
         return string
 
     def __str__(self):
-        return f"<ParseNode {str(self.symbol)}>"
+        return self.format_tree()
     
     def __repr__(self):
-        return str(self)
+        return f"<ParseNode {str(self.symbol)}>"
 
+
+class SyntaxNode:
+    def __init__(self, value:str, attributes:dict):
+        self.value = value
+        self.attributes = attributes
+
+    def format_tree(self, level:int=0, prefix="") -> str:
+        string = f"{'    '*level}{prefix}{':' if prefix else ''} {self.value}"
+        for key, child in self.attributes.items():
+            if isinstance(child, SyntaxNode):
+                string += "\n" + child.format_tree(level=(level+1), prefix=key)
+            else:
+                string += f"\n{key}: {child}"
+        return string
+
+    def __str__(self):
+        return self.format_tree()
+
+    def __repr__(self):
+        return f"SyntaxNode({self.value}: {list(self.attributes.values())})"
 
 class Parser:
     """Encapsulates the parsing process for a given grammar."""
@@ -95,7 +113,7 @@ class Parser:
         print("Stack:")
         for node in stack:
             if isinstance(node[0], ParseNode):
-                node[0].print()
+                print(node[0])
             else:
                 print(node[0])
         print("-"*50)
@@ -160,16 +178,14 @@ class Parser:
                 return parse_node[symbol, index].attributes[attribute]
 
         if action_routine.val_type == "Node":
-            vals = list(map(eval_action_val, action_routine.val_args))
-            
-            node_children = []
-            for child in vals[1:]:
-                if isinstance(child, list):
-                    node_children.extend(child)
-                else:
-                    node_children.append(child)
-            print(f"{parse_node}.{action_routine.dest} = {vals[0]}{node_children}")
-            parse_node.attributes[action_routine.dest] = ( vals[0], node_children )
+            node_id, *node_attribute_pairs = action_routine.val_args
+            node_value = eval_action_val(node_id)
+            node_attributes = {
+                key : eval_action_val(id) 
+                for key, id in node_attribute_pairs
+            }
+
+            parse_node.attributes[action_routine.dest] = SyntaxNode(node_value, node_attributes)
 
         if action_routine.val_type == "List":
             vals = list(map(eval_action_val, action_routine.val_args))
@@ -181,10 +197,8 @@ class Parser:
                 else:
                     new_list.append(elem)
 
-            print(f"{parse+_node}.{action_routine.dest} = {new_list}")
             parse_node.attributes[action_routine.dest] = new_list
 
         if action_routine.val_type == "Val":
             val = eval_action_val(action_routine.val_args[0]) 
-            print(f"{parse_node}.{action_routine.dest} = {val}")
             parse_node.attributes[action_routine.dest] = val

@@ -4,7 +4,10 @@ import readline
 import pickle
 
 def main():
-    syntax = SyntaxDescription("cfg.lang")
+    syntax = SyntaxDescription("test.lang")
+
+    #with open("calc.lang") as f:
+    #    string = f.read()
 
     string = input()
 
@@ -15,17 +18,19 @@ def main():
 
     token_stream = syntax.tokenizer(string)
     tree = syntax.parser(token_stream)
-    tree.print()
-    print(tree.attributes)
+    if "node" in tree.attributes:
+        print(tree.attributes["node"])
+    else:
+        print(tree)
 
 
 
 def refresh_cfg_parser():
-    syntax = BasicSyntaxDescription("cfg.lang")
+    syntax = SyntaxDescription("cfg.lang")
     
     cfg_parser = CFG_Parser(syntax.parser.table.goto_table, syntax.parser.table.action_table)
    
-    with open("calc.lang") as f:
+    with open("cfg.lang") as f:
         string = f.read()
 
     token_stream = syntax.tokenizer(string)
@@ -36,7 +41,7 @@ def refresh_cfg_parser():
 
     token_stream = syntax.tokenizer(string)
     tree = syntax.parser(token_stream)
-    tree.print()
+    print(tree)
 
     with open("./parser/cfg_parser.pkl", "wb") as f:
         pickle.dump((syntax.tokenizer, cfg_parser), f)
@@ -44,4 +49,5 @@ def refresh_cfg_parser():
 if __name__ == "__main__":
     main()
     #refresh_cfg_parser()
+
 

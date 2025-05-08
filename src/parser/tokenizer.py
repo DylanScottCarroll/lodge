@@ -34,23 +34,15 @@ class Tokenizer:
         if position >= len(text):
             return Token(Symbol.eof, "", (position, position)), position
         
-        # Find the earliest match
         # Ties between matches are broken by length
+        # Remaining ties are broken by prioritiy: Earlier rules have priority
         match:re.Match|None = None
         symbol: Symbol|None = None
         for current_symbol, pattern in self.rules:
             new_match:re.Match = pattern.match(text, pos=position)
             if not new_match: continue
 
-            def compare_matches(match, new_match):
-                old_start = match.start()
-                old_len = len(match.group())
-                new_start = new_match.start()
-                new_len = len(new_match.group())
-
-                return ( (new_start < old_start) ) or (( new_start == old_start ) and ( new_len > old_len))
-
-            if (match is None) or compare_matches(match, new_match):
+            if (match is None) or  (len(new_match.group()) > len(match.group())):
                 match = new_match
                 symbol = current_symbol
         
@@ -58,7 +50,7 @@ class Tokenizer:
             print("Syntax Error! No token match")
             breakpoint()
             exit()
-
+        
         start, end = match.span()
 
         # Return a new token

@@ -17,7 +17,7 @@ class CFG_Parser:
         print("Stack:")
         for node in stack:
             if isinstance(node[0], ParseNode):
-                node[0].print()
+                print(node[0])
             else:
                 print(node[0])
         print("-"*(len(str(token))+1))
