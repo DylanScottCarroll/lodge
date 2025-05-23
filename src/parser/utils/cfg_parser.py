@@ -1,8 +1,3 @@
-from .table import Action, Accept, Shift, Reduce, Error
-from .tokenizer import Token, TokenStream
-from .symbol import Symbol
-from .tree import ParseNode
-
 from  collections import namedtuple
 
 class CFG_Parser:
@@ -34,7 +29,7 @@ class CFG_Parser:
             action = self.action_table.get((state, token.symbol), Error())
 
             if isinstance(action, Shift):
-                new_node = ParseNode(token.symbol, token=token)
+                new_node = ParseNode(token.symbol, tokens=[token])
                 
                 stack.append(StackItem(new_node, action.new_state))
                 
@@ -60,3 +55,4 @@ class CFG_Parser:
                 print(f"ERROR: Unexpected token {token}")
                 breakpoint()
                 exit()
+

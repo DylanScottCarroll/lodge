@@ -1,7 +1,8 @@
-from .grammar import Grammar, GrammarRule, ActionRoutine
+from .utils import OrderedSet
+
 from .symbol import Symbol
-from .ordered_set import OrderedSet
-from .tokenizer import Token
+from .grammar import Grammar, GrammarRule
+
 
 class StateItem:
     """
@@ -130,6 +131,10 @@ class State:
     
     def __repr__(self) -> str:
         return str(self)
+
+from .symbol import Symbol
+
+from .grammar import ActionRoutine
 
 
 class Accept:
@@ -296,3 +301,4 @@ class ParseTable:
                 string += f"{new_state:^{len(str(token))+4}}"
 
         return string
+

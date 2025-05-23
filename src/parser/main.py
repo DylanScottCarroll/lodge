@@ -2,7 +2,7 @@ import sys
 import pickle
 import readline
 
-from parser import Parser
+from .parser import Parser
 from .symbol import Symbol
 
 def test():
@@ -61,7 +61,7 @@ def refresh_cfg_parser():
 
 
     print("Saving parse tables...")
-    with open("./cfg_parser.pkl", "wb") as f:
+    with open("./parser/resources/cfg_parser.pkl", "wb") as f:
         pickle.dump((parser.grammar, parser.tokenizer), f)
 
     print("Done!")

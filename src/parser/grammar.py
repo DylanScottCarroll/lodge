@@ -1,7 +1,5 @@
-from .ordered_set import OrderedSet
+from .utils import OrderedSet
 from .symbol import Symbol
-
-from typing import Callable
 
 class ActionRoutine:
     def __init__(self, dest:str, val_type:str, val_args:tuple):

@@ -22,7 +22,7 @@ class Symbol():
         
         return instance
 
-    def __init__(self, identifier:str, terminal:bool=True, *, _special_type:str=""):
+    def __init__(self, identifier:str, terminal:bool=True):
         self._frozen = False
 
         self.identifier:str = identifier

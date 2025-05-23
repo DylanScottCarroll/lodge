@@ -1,160 +1,272 @@
-from .table import ParseTable, Accept, Shift, Reduce, Error
-from .tokenizer import Token, TokenStream
+import re
+import pickle
+from collections import namedtuple
+
+from .utils import OrderedSet
+from .utils.errors import ParserSyntaxError, ParserTokenizerError, GrammarError
+
 from .symbol import Symbol
-from .grammar import Grammar
+from .tree import ParseNode, SyntaxNode
+from .grammar import Grammar, GrammarRule, ActionRoutine
+from .table import ParseTable, Accept, Reduce, Shift, Error
+from .tokenizer import Tokenizer, Token, TokenStream
 
-from  collections import namedtuple
 
-class ParseNode:
-    def __init__(self, symbol:Symbol, parent:'ParseNode|None'=None, children:list|None=None, tokens:list|None = None):
-        self.symbol:Symbol = symbol
-        self.parent:ParseNode|None= parent
-        
-        self.children: list[ParseNode] = children or []
-        self.tokens: list[Token] = tokens or []
-        
-        self.attributes = {}
-
-        for child in self.children:
-            child.parent = self
-            self.tokens.extend(child.tokens)
-        
-        if len(self.tokens) == 1 and len(self.children) == 0:
-            self.attributes["token"] = self.tokens[0].text
-
-    def _get(self, symbol:Symbol|str|None=None, index:int=0):
-        if symbol is None:
-            return self.children[index]
+def iter_recursed_node(node:ParseNode, value_id:str, rest_id:str):
+    children_left = True
+    while children_left:
+        if value_id in node:
+            yield node[value_id]
         else:
-            for child in self.children:
-                if child.symbol == symbol or child.symbol.identifier == symbol:
-                    if index == 0:
-                        return child
-                    else:
-                        index -= 1
+            children_left = False
 
-            raise KeyError(f"Index {index} out of bounds for symbol {repr(symbol)}.")
-
-    def __getitem__(self, key):
-        if isinstance(key, int):
-            return self._get(None, key)
-        elif isinstance(key, Symbol) or isinstance(key, str):
-            return self._get(symbol=key)
-        elif isinstance(key, tuple) and len(key) == 2:
-            symbol, index = key
-            if isinstance(symbol, Symbol) or isinstance(symbol, str):
-                return self._get(symbol=symbol, index=index)
-            else:
-                raise KeyError(f"Unexpected symbol type: '{symbol}'")
-
+        if rest_id in node:
+            node = node[rest_id]
         else:
-            raise KeyError(f"Unexpected key for ParseNode: '{key}'")
-    
-    def __contains__(self, key):
-        try:
-            if isinstance(key, tuple):
-                self[*key]
-            else:
-                self[key]
-
-            return True
-        except KeyError:
-            return False
-
-
-
-    def format_tree(self, level:int=0):
-        if len(self.children) > 0:
-            string = f"{'    '*level}{str(self.symbol)}"  
-            for child in self.children:
-                string += "\n" + child.format_tree(level+1)
-        elif len(self.tokens) != 0:
-            string =  f"{'    '*level}{str(self.symbol)} : {repr(self.tokens[0].text)}"
-        else:
-            string =  f"{'    '*level}{str(self.symbol)} : ε"
-
-        return string
-
-    def __str__(self):
-        return self.format_tree()
-    
-    def __repr__(self):
-        return f"<ParseNode {str(self.symbol)}>"
-
-
-class SyntaxNode:
-    def __init__(self, value:str, attributes:dict):
-        self.value = value
-        self.attributes = attributes
-
-    def format_tree(self, level:int=0, prefix="") -> str:
-        string = f"{'    '*level}{prefix}{':' if prefix else ''} {self.value}"
-        for key, child in self.attributes.items():
-            if isinstance(child, SyntaxNode):
-                string += "\n" + child.format_tree(level=(level+1), prefix=key)
-            else:
-                string += f"\n{key}: {child}"
-        return string
-
-    def __str__(self):
-        return self.format_tree()
-
-    def __repr__(self):
-        return f"SyntaxNode({self.value}: {list(self.attributes.values())})"
+            children_left = False
 
 class Parser:
+    """
+    Contains the logic for reading a syntax description file and extracting the grammar and tokenizer from it.
+    """
+
+    def __init__(self, filename):
+        raw_token_rules, raw_grammar_rules =  self._read_file(filename)
+
+        token_rules, terminals = self._process_token_rules(raw_token_rules)
+        grammar_rules, start_symbol, nonterminals, terminals, token_rules = self._process_grammar_rules(raw_grammar_rules, terminals, token_rules)
+
+        self.grammar = Grammar(grammar_rules, nonterminals, terminals, start_symbol)
+        self.tokenizer =  Tokenizer(token_rules)
+
+    def parse(self, text):
+        self.parser_state = ParserState(self.grammar, self.tokenizer(text))
+
+        return self.parser_state()
+
+    def resume(self, parser_state):
+        self.parser_state = parser_state
+        return self.parser_state()
+
+    def _process_token_rules(self, raw_rules) -> tuple[list, OrderedSet]:
+        rules = []
+        terminals = OrderedSet()
+        for head, body in raw_rules:
+            terminals.add(Symbol(head, True))
+            rules.append((Symbol(head, True), body))
+
+        return rules, terminals
+
+    def _process_grammar_rules(self, raw_rules, terminals, token_rules):
+        # Find all nonterminals
+        nonterminal_identifiers:OrderedSet = OrderedSet(head for head, _, _ in raw_rules)
+        
+        literal_tokens = []
+
+        rules = []
+        nonterminals = OrderedSet()
+        
+        for head, body, actions in raw_rules:
+            head = Symbol(head, False)
+             
+
+            body_symbols = [
+                Symbol(identifier, identifier not in nonterminal_identifiers)
+                for _, identifier in body 
+            ]
+
+            action_routines = [
+                ActionRoutine(dest, val_type, val_args)
+                for dest, (val_type, val_args) in actions
+            ]
+
+            # Update Symbol Sets
+            terminals.update([symbol for symbol in body_symbols if symbol.terminal])
+            nonterminals.add(head)
+
+            #Add to literal expression
+            literal_tokens.extend([re.escape(symbol) for kind, symbol in body if kind == "literal"])
+    
+            # Add new grammar rule
+            rules.append(GrammarRule(head, body_symbols, action_routines))
+
+        literal_token_rule = ( Symbol("*", True), "|".join(literal_tokens) )
+        token_rules.insert(0, literal_token_rule)
+
+        start_symbol = rules[0].head
+        
+        return rules, start_symbol, nonterminals, terminals, token_rules
+
+
+    def _read_file(self, filename:str) -> tuple[list, list]:
+        with open("./parser/resources/cfg_parser.pkl", "rb") as f:
+            cfg_grammar, cfg_tokenizer = pickle.load(f)
+        
+        with open(filename) as f:
+            text = f.read()
+        
+        tree = None
+        try:
+            token_stream = cfg_tokenizer(text)
+            cfg_parser = ParserState(cfg_grammar, token_stream)
+            tree = cfg_parser()
+
+        except ParserSyntaxError as e:
+            raise GrammarError(f"Source grammar file has a syntax error. Unexpected token: {str(e.parser_state)}")
+        except ParserTokenizerError as e:
+            raise GrammarError(f"Source grammar file has an unparasble token at position {e.position}.")
+       
+        return self._unpack_tree(tree)
+
+    def _unpack_tree(self, tree) -> tuple[list, list]:
+        lines = iter_recursed_node(tree["lines"], "line", "lines")
+        token_rules = []
+        grammar_rules = []
+        for line in lines:
+            if "=" in line:
+                token_rule = self._unpack_token_rule(line)
+                token_rules.append(token_rule)
+            elif "arrow" in line:
+                grammar_rule = self._unpack_grammar_rule(line)
+                grammar_rules.append(grammar_rule)
+        
+        return (token_rules, grammar_rules)
+
+    def _unpack_token_rule(self, line) -> tuple:
+        head = line["id"].attributes["token"]
+        body:str = line["regex"].attributes["token"][1:-1] 
+
+        return (head, body)
+
+    def _unpack_grammar_rule(self, line) -> tuple:
+        head = line["id"].attributes["token"]
+        
+        body = []
+        for symbol in iter_recursed_node(line["cfg_body"], "symbol", "cfg_body"):
+            if "literal" in symbol: 
+                string = symbol["literal"].attributes["token"]
+                if string[0] == '`' and string[-1] == '`':
+                    string = string[1:-1]
+                body.append(("literal", string))
+            elif "id" in symbol:
+                body.append(("id", symbol["id"].attributes["token"]))
+            else:
+                body.append(("literal", symbol[0].attributes["token"]))
+
+        if "action_routines" in line:
+            routines = self._unpack_action_routines(line["action_routines"])
+        else:
+            routines = []
+        
+        return (head, body, routines)
+
+
+    def _unpack_action_routines(self, routines) -> list[tuple]:
+        parsed_routines = []
+        for routine in iter_recursed_node(routines, "action_routine", "action_routines"):
+            head = routine["id"].attributes["token"]
+            body = self._unpack_action_body(routine["action_body"])
+
+            parsed_routines.append((head, body))
+        return parsed_routines
+
+    def _unpack_action_body(self, action_body):
+        if action_body[0].symbol.identifier == "(":
+            # Parse routine node declaration   
+            node_val = self._unpack_action_id(action_body["action_id"])
+            
+            node_children = tuple([
+                self._unpack_node_id(action_id) for action_id in
+                iter_recursed_node(action_body["node_ids"], "node_id", "node_ids")
+            ])
+            
+            return ("Node", (node_val,) + node_children)
+
+        elif action_body[0].symbol.identifier == "[":
+            # Parse routine list declaration
+            node_children = tuple([
+                self._unpack_action_id(action_id) for action_id in
+                iter_recursed_node(action_body["list_vals"], "action_id", "list_vals")
+            ])
+            
+            return ("List", node_children)
+       
+        else:
+            # Parse simple routine
+            return ("Val", ( self._unpack_action_id(action_body["action_id"]), ))
+    
+    def _unpack_node_id(self, node_id) -> tuple:
+        head = node_id["id"].attributes["token"]  
+        body = self._unpack_action_id(node_id["action_id"])
+        
+        return (head, body)
+
+    def _unpack_action_id(self, action_id) -> tuple:
+        if "string_literal" in action_id:
+            return (action_id["string_literal"].attributes["token"][1:-1] , )
+        else:
+            index = int(action_id["number"].attributes["token"]) if ("number" in action_id) else 0
+            id1 = action_id["id", 0].attributes["token"]
+            id2 = action_id["id", 1].attributes["token"]
+            
+            return (id1, index, id2)
+
+StackItem = namedtuple("StackItem", "node, state")
+class ParserState:
     """Encapsulates the parsing process for a given grammar."""
 
-    def __init__(self, grammar: Grammar):
+    def __init__(self, grammar: Grammar, token_stream: TokenStream):
         self.table = ParseTable(grammar)
+        self.token_stream: TokenStream = token_stream
 
-    def show_state(self, stack, state, token):
-        print("="*100)
-        print("Stack:")
-        for node in stack:
+        self.stack: list[StackItem]= [StackItem(None, 0)]
+        self.token: Token = Token(Symbol.epsilon, "", (0, 0))
+        self.state: int = 0
+
+
+    def __str__(self):
+        string = f"\n{' Stack ':-^75}\n"
+        for node in self.stack:
             if isinstance(node[0], ParseNode):
-                print(node[0])
+                string += f"{node[0]}\n"
             else:
-                print(node[0])
-        print("-"*50)
-        print("Parser state:")
-        print(self.table.states[state])
+                string += "{node[0]}\n"
+        string += f"{' Parser state ':-^75}\n"
+        string += f"{self.table.states[self.state]}\n"
         
-        print("-"*50)
-        print(f"Next Token: {token}")
+        string += "-"*75 + "\n"
+        string += f"Next Token: {self.token}\n"
 
-    def __call__(self, token_stream: TokenStream) -> ParseNode:
-        StackItem = namedtuple("StackItem", "node, state")
-        stack: list[StackItem]= [StackItem(None, 0)]
+        return string
 
+
+    def __call__(self) -> ParseNode:
         while True:
-            _, state = stack[-1]
-            token = token_stream.peek()
-            action = self.table.action(state, token.symbol)
+            _, self.state = self.stack[-1]
+            self.token = self.token_stream.peek()
+            action = self.table.action(self.state, self.token.symbol)
 
             if isinstance(action, Shift):
-                new_node = ParseNode(token.symbol, tokens=[token])
-                
-                stack.append(StackItem(new_node, action.new_state))
-                
-                token_stream.pop()
+                new_node = ParseNode(self.token.symbol, token=self.token)
+                self.stack.append(StackItem(new_node, action.new_state))
+                self.token_stream.pop()
 
             elif isinstance(action, Reduce):
                 head, body_length = action.head, action.body_length
                 
-                children = [stack_item.node for stack_item in stack[len(stack)-body_length:] ]
-                stack = stack[:len(stack)-body_length]
+                children = [stack_item.node for stack_item in self.stack[len(self.stack)-body_length:] ]
+                self.stack = self.stack[:len(self.stack)-body_length]
 
                 new_node = ParseNode(head, children=children)
                 
                 for action_routine in action.action_routines:
                     self.apply_action_routine(new_node, action_routine)
             
-                goto_state = self.table.goto(stack[-1].state, head)    
-                stack.append(StackItem(new_node, goto_state))
+                goto_state = self.table.goto(self.stack[-1].state, head)    
+                self.stack.append(StackItem(new_node, goto_state))
 
             elif isinstance(action, Accept):
-                root_node = ParseNode(action.start, None, [stack[1].node])
+                root_node = ParseNode(action.start, None, [self.stack[1].node])
                 
                 for action_routine in action.action_routines:
                     self.apply_action_routine(root_node, action_routine)
@@ -162,12 +274,8 @@ class Parser:
                 return root_node
                 
             else:
-
-                self.show_state(stack, state, token)
-
-                print(f"ERROR: Unexpected token {token}")
-                breakpoint()
-                exit()
+                raise ParserSyntaxError(self)
+        
 
     def apply_action_routine(self, parse_node, action_routine):
         def eval_action_val(val):
@@ -202,3 +310,5 @@ class Parser:
         if action_routine.val_type == "Val":
             val = eval_action_val(action_routine.val_args[0]) 
             parse_node.attributes[action_routine.dest] = val
+
+

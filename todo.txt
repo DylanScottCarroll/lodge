@@ -1,6 +1,0 @@
-- [ ] Use normal parser for cfg parsing
-- [ ] Parse error bubbling system
-- [ ] Add better error messages throughout 
-- [ ] Add file inclusion for language files
-- [ ] Reconsider Package Structure
-- [ ] Make usage of the parser easier from an import and cli perspective 

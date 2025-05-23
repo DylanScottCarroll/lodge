@@ -1,5 +1,6 @@
 import re
 from .symbol import Symbol
+from .utils.errors import ParserTokenizerError, GrammarError
 
 class Token:
     def __init__(self, symbol:Symbol, text:str, span:tuple[int, int]):
@@ -22,7 +23,7 @@ class Tokenizer:
             try:
                 symbol_pattern = (symbol, re.compile(pattern) )
             except re.PatternError: 
-                print(f'Error: The regular expression for "{symbol}" is malformed: /{pattern}/')
+                raise GrammarError(f'The regular expression for "{symbol}" is malformed: /{pattern}/')
                 continue 
             self.rules.append(symbol_pattern)
 
@@ -47,10 +48,8 @@ class Tokenizer:
                 symbol = current_symbol
         
         if (match is None) or (symbol is None):
-            print("Syntax Error! No token match")
-            breakpoint()
-            exit()
-        
+           raise ParserTokenizerError(self, text, position)  
+
         start, end = match.span()
 
         # Return a new token
