@@ -1,0 +1,120 @@
+ε = /!![^\n]*\n|!-((?!-!).?)*-!|\s+/
+float_literal = /[0-9]+\.[0-9]+|\.[0-9]+|[0-9]+\./
+int_literal = /[0-9]+/
+
+identifier = /[a-zA-Z_][a-zA-Z_0-9]*/ 
+
+
+Start -> Expr     >> .node = Expr.node
+Expr -> AssExpr   >> .node = AssExpr.node
+
+# Assignment
+ass_op = /([\/\-&<%^+=*>|!?]*|is|isnt):=/
+AssExpr -> AssExpr  ass_op  ResExpr   >> .node = (ass_op.token){l:AssExpr.node, r:ResExpr.node}
+AssExpr -> ResExpr                    >> .node = ResExpr.node
+
+# Resolution Operators
+ResExpr -> ResExpr  `?`  PostResExpr   >> .node = ("?"){l:ResExpr.node, r:PostResExpr.node}
+ResExpr -> ResExpr  `!`  PostResExpr   >> .node = ("!"){l:ResExpr.node, r:PostResExpr.node}
+ResExpr -> PostResExpr                 >> .node = PostResExpr.node
+
+# Postfix Resolution Operator
+PostResExpr -> PostResExpr `!`   >> .node = ("u!"){operand: PostResExpr.node}
+PostResExpr -> OrExpr            >> .node = OrExpr.node
+
+
+# Logical Or
+or_op = /\||!\|/
+OrExpr -> OrExpr or_op XorExpr   >> .node = (or_op.token){l:OrExpr.node, r:XorExpr.node}
+OrExpr -> XorExpr                >> .node = XorExpr.node
+
+# Logical Xor
+xor_op = /\^|!\^/
+XorExpr -> XorExpr xor_op AndExpr   >> .node = (xor_op.token){l:XorExpr.node, r:AndExpr.node}
+XorExpr -> AndExpr                  >> .node = AndExpr.node
+
+# Logical And
+and_op = /&|!&/
+AndExpr -> AndExpr and_op CompExpr   >> .node = (and_op.token){l:AndExpr.node, r:CompExpr.node}
+AndExpr -> CompExpr                  >> .node = CompExpr.node
+
+# Comparison Operators
+comp_op = /==|!=|is|isnt|<|>|>=|<=/
+CompExpr -> CompExpr comp_op NotExpr   >> .node = (comp_op.token){l:CompExpr.node, r:NotExpr.node}
+CompExpr -> NotExpr                    >> .node = NotExpr.node
+
+# Logical Not
+NotExpr -> `not` NotExpr   >> .node = ("not"){operand:NotExpr.node}
+NotExpr -> BOrExpr         >> .node = BOrExpr.node
+
+# Bitwise Or
+BOrExpr -> BOrExpr `||` BXorExpr   >> .node = ("||"){l:BOrExpr.node, r:BXorExpr.node}
+BOrExpr -> BXorExpr                >> .node = BXorExpr.node
+
+# Bitwise Xor
+BXorExpr -> BXorExpr `^^` BAndExpr   >> .node = ("^^"){l:BXorExpr.node, r:BAndExpr.node}
+BXorExpr -> BAndExpr                 >> .node = BAndExpr.node
+
+# Bitwise And
+BAndExpr -> BAndExpr `&&` BShiftExpr   >> .node = ("&&"){l:BAndExpr.node, r:BShiftExpr.node}
+BAndExpr -> BShiftExpr                 >> .node = BShiftExpr.node
+
+# Bit Shift
+BShiftExpr -> BShiftExpr `<<` AddExpr   >> .node = ("<<"){l:BShiftExpr.node, r:AddExpr.node}
+BShiftExpr -> BShiftExpr `>>` AddExpr   >> .node = (">>"){l:BShiftExpr.node, r:AddExpr.node}
+BShiftExpr -> AddExpr                   >> .node = AddExpr.node
+
+# Addition-Level Operators
+AddExpr -> AddExpr `+` MulExpr   >> .node = ("+"){l:AddExpr.node, r:MulExpr.node}
+AddExpr -> AddExpr `-` MulExpr   >> .node = ("-"){l:AddExpr.node, r:MulExpr.node}
+AddExpr -> MulExpr               >> .node = MulExpr.node
+
+# Multiplication-Level Operators
+mul_op = /\*|\/\/|\/|%/
+MulExpr -> MulExpr mul_op PreExpr   >> .node = (mul_op.token){l:MulExpr.node, r:PreExpr.node}
+MulExpr -> PreExpr                  >> .node = PreExpr.node 
+
+# Unary prefix : PreExpr
+PreExpr -> `-`  PreExpr   >> .node = ("u-"){operand:PreExpr.node}
+PreExpr -> `+`  PreExpr   >> .node = ("u+"){operand:PreExpr.node}
+PreExpr -> `-|` PreExpr   >> .node = ("-|"){operand:PreExpr.node}
+PreExpr -> PowExpr        >> .node = PowExpr.node
+
+# Power Operator
+PowExpr -> PowExpr `**` IncExpr   >> .node = ("**"){l:PowExpr.node, r:IncExpr.node}
+PowExpr -> IncExpr                >> .node = IncExpr.node
+
+# Increment operators (postfix)
+inc_op = /\+\+|--/
+IncExpr -> IncExpr inc_op   >> .node = (inc_op.token){operand:IncExpr.node}
+IncExpr -> Operand          >> .node = Operand.node
+
+
+# Primary Operands
+Operand -> ( Expression )   >> .node = Expression.node
+Operand -> CallExpr         >> .node = CallExpr.node 
+Operand -> IndexExpr        >> .node = IndexExpr.node
+Operand -> CastExpr         >> .node = CastExpr.node
+Operand -> AccessExpr       >> .node = AccessExpr.node
+Operand -> Atom             >> .node = Atom.node
+
+
+# Function Calling
+CallExpr -> Operand `(` `)`   >> .node = ("call"){func:Operand.node}
+
+# Indexing Operation
+IndexExpr -> Operand `[`  `]`   >> .node = ("index"){operand:Operand.node}
+
+
+# Type Casting
+CastExpr -> Operand `->` Type   >> .node = ("type_conversion"){operand:Operand.node, type:Type.node}
+Type -> identifier              >> .node = ("type"){name:identifier.token}
+
+# Object Member Access
+AccessExpr -> Operand `.` identifier   >> .node = ("access"){parent:Operand.node, child:identifier.token}
+
+
+# Most basic atoms
+Atom -> identifier      >> .node = ("identifier"){val:identifier.token}
+Atom -> float_literal   >> .node = ("float_literal"){val:float_literal.token}
+Atom -> int_literal     >> .node = ("int_literal"){val:int_literal.token}
