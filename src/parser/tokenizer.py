@@ -24,7 +24,7 @@ class Tokenizer:
                 symbol_pattern = (symbol, re.compile(pattern) )
             except re.PatternError: 
                 raise GrammarError(f'The regular expression for "{symbol}" is malformed: /{pattern}/')
-                continue 
+                 
             self.rules.append(symbol_pattern)
 
     def __call__(self, text:str) -> 'TokenStream':

@@ -32,15 +32,22 @@ class Parser:
 
     def __init__(self, filename):
         raw_token_rules, raw_grammar_rules =  self._read_file(filename)
+        print("Grammar File Parsed")
 
         token_rules, terminals = self._process_token_rules(raw_token_rules)
         grammar_rules, start_symbol, nonterminals, terminals, token_rules = self._process_grammar_rules(raw_grammar_rules, terminals, token_rules)
+        print("Rules Parsed")
+
 
         self.grammar = Grammar(grammar_rules, nonterminals, terminals, start_symbol)
+        print("Grammar Done")
+        self.table = ParseTable(self.grammar)
+        print("Table Done")
         self.tokenizer =  Tokenizer(token_rules)
+        print("Tokenizer Done")
 
     def parse(self, text):
-        self.parser_state = ParserState(self.grammar, self.tokenizer(text))
+        self.parser_state = ParserState(self.table, self.tokenizer(text))
 
         return self.parser_state()
 
@@ -108,7 +115,7 @@ class Parser:
         tree = None
         try:
             token_stream = cfg_tokenizer(text)
-            cfg_parser = ParserState(cfg_grammar, token_stream)
+            cfg_parser = ParserState(ParseTable(cfg_grammar), token_stream)
             tree = cfg_parser()
 
         except ParserSyntaxError as e:
@@ -179,7 +186,6 @@ class Parser:
                 self._unpack_node_id(action_id) for action_id in
                 iter_recursed_node(action_body["node_ids"], "node_id", "node_ids")
             ])
-            
             return ("Node", (node_val,) + node_children)
 
         elif action_body[0].symbol.identifier == "[":
@@ -203,7 +209,7 @@ class Parser:
 
     def _unpack_action_id(self, action_id) -> tuple:
         if "string_literal" in action_id:
-            return (action_id["string_literal"].attributes["token"][1:-1] , )
+            return action_id["string_literal"].attributes["token"][1:-1]
         else:
             index = int(action_id["number"].attributes["token"]) if ("number" in action_id) else 0
             id1 = action_id["id", 0].attributes["token"]
@@ -213,10 +219,10 @@ class Parser:
 
 StackItem = namedtuple("StackItem", "node, state")
 class ParserState:
-    """Encapsulates the parsing process for a given grammar."""
+    """Encapsulates the parsing process for a given grammar and input stream."""
 
-    def __init__(self, grammar: Grammar, token_stream: TokenStream):
-        self.table = ParseTable(grammar)
+    def __init__(self, table: ParseTable, token_stream: TokenStream):
+        self.table = table
         self.token_stream: TokenStream = token_stream
 
         self.stack: list[StackItem]= [StackItem(None, 0)]
@@ -232,7 +238,8 @@ class ParserState:
             else:
                 string += "{node[0]}\n"
         string += f"{' Parser state ':-^75}\n"
-        string += f"{self.table.states[self.state]}\n"
+        string += f"{
+        self.table.states[self.state]}\n"
         
         string += "-"*75 + "\n"
         string += f"Next Token: {self.token}\n"

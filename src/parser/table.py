@@ -2,7 +2,9 @@ from .utils import OrderedSet
 
 from .symbol import Symbol
 from .grammar import Grammar, GrammarRule
+from .grammar import ActionRoutine
 
+import copy
 
 class StateItem:
     """
@@ -29,6 +31,11 @@ class StateItem:
             return self.body[self.position]
         else:
             return None
+
+    def without_follow(self):
+        other = copy.deepcopy(self)
+        other.follow = ()
+        return other
 
     def __eq__(self, other) -> bool:
         if hash(self) != hash(other) or not isinstance(other, StateItem):
@@ -65,6 +72,8 @@ class StateItem:
     def __repr__(self):
         return str(self)
 
+
+
 class State:
     """
     A set of partially completed grammar rules, representing a state in a partially parsed grammar.
@@ -82,26 +91,31 @@ class State:
         for item in list(self.items):
             item:StateItem
             if not item.finished:
-                self._close_helper(item, OrderedSet())
+                new_items = self._close_helper(item, OrderedSet())
+                self.items.update(new_items)
 
 
-    def _close_helper(self, item: StateItem, visited: OrderedSet) -> None:
+    def _close_helper(self, item: StateItem, visited: OrderedSet) -> OrderedSet:
         if item.body == ():
-            return
+            return OrderedSet()
 
         next_symbol:Symbol = item.body[item.position]
-
         if next_symbol.terminal:
-            return   
-            
+            return OrderedSet()
+        
         follow_set = self._grammar.follow_sets[next_symbol]    
-
+        
+        items = OrderedSet()
         for rule in self._grammar.get_rules_by_head(next_symbol):
             new_item = StateItem(rule, follow_set)
-            self.items.add(new_item)
+            items.add(new_item)
 
-            if new_item not in visited:
-                self._close_helper(new_item, visited|{new_item})    
+            if new_item.without_follow() not in visited:
+                visited.add(new_item.without_follow())
+                new_items = self._close_helper(new_item, visited)    
+                items.update(new_items)
+
+        return items
 
     def get_transition_result(self, symbol: Symbol) -> 'State':
         def shift_item(item: StateItem) -> StateItem:
@@ -132,9 +146,7 @@ class State:
     def __repr__(self) -> str:
         return str(self)
 
-from .symbol import Symbol
 
-from .grammar import ActionRoutine
 
 
 class Accept:

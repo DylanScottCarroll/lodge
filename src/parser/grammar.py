@@ -115,19 +115,20 @@ class Grammar:
                 self.rule_body_map[head] = []
 
     def _populate_first_and_follow_sets(self) -> None:
-        def in_order_traverse(symbol: Symbol, visited: OrderedSet) -> None:
-            if symbol in self.terminals:
+        def traverse(symbol: Symbol, visited: OrderedSet) -> None:
+            if symbol in self.terminals or symbol in visited:
                 return
-            
+            visited.add(symbol)
+
             for rule in self.get_rules_by_head(symbol):
                 for rule_body_symbol in rule.body:
                     if rule_body_symbol not in visited:
-                        in_order_traverse(rule_body_symbol, visited|{rule_body_symbol})
+                        traverse(rule_body_symbol, visited)
 
             self.first_sets[symbol] = self._find_first_set(symbol)
             self.follow_sets[symbol] = self._find_follow_set(symbol)
 
-        in_order_traverse(self.start_symbol, OrderedSet({self.start_symbol}))
+        traverse(self.start_symbol, OrderedSet())
         
         for nonterminal in self.nonterminals:
             if (nonterminal not in self.first_sets):
@@ -150,7 +151,8 @@ class Grammar:
         for rule in self.get_rules_by_head(symbol):
             current_rule_set = self._find_first_from_nonterminal_list(rule.body, explored_symbols)
             first_set.update(current_rule_set)
-
+        
+        self.first_sets[symbol] = first_set
         return first_set
 
     def _find_follow_set(self, symbol: Symbol, explored_symbols: OrderedSet|None = None) -> OrderedSet:
@@ -176,7 +178,8 @@ class Grammar:
                 if rule.head not in explored_symbols:
                     head_follow_set = self._find_follow_set(rule.head, explored_symbols|{rule.head})
                     follow_set.update(head_follow_set)
-
+        
+        self.follow_sets[symbol] = follow_set
         return follow_set
 
     def _find_first_from_nonterminal_list(self, symbol_list: list[Symbol], explored_symbols: OrderedSet|None = None) -> OrderedSet:
